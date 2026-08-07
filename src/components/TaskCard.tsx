@@ -1,3 +1,4 @@
+// Task Card item component
 import React from 'react';
 import type { Task } from '../types';
 import { format, isToday, isTomorrow, isPast, differenceInDays } from 'date-fns';
@@ -9,22 +10,26 @@ interface TaskCardProps {
 }
 
 const statusConfig = {
-  pending: { dot: 'bg-slate-400', badge: 'bg-slate-700/60 text-slate-300', label: 'Pending' },
-  in_progress: { dot: 'bg-blue-400', badge: 'bg-blue-500/20 text-blue-300', label: 'In Progress' },
-  completed: { dot: 'bg-emerald-400', badge: 'bg-emerald-500/20 text-emerald-300', label: 'Completed' },
-  overdue: { dot: 'bg-red-400', badge: 'bg-red-500/20 text-red-300', label: 'Overdue' },
+  pending:     { dot: 'bg-slate-400', badge: 'bg-slate-700/60 text-slate-300', label: 'Pending' },
+  in_progress: { dot: 'bg-blue-400',  badge: 'bg-blue-500/20 text-blue-300',   label: 'In Progress' },
+  completed:   { dot: 'bg-emerald-400', badge: 'bg-emerald-500/20 text-emerald-300', label: 'Completed' },
+  overdue:     { dot: 'bg-red-400',   badge: 'bg-red-500/20 text-red-300',     label: 'Overdue' },
 };
 
 const weightColors = ['', 'bg-slate-500', 'bg-blue-500', 'bg-amber-500', 'bg-orange-500', 'bg-red-500'];
 
+// Formats due date label relative to current day
 const getDueDateLabel = (dueDate: string) => {
   const d = new Date(dueDate);
+
   if (isPast(d) && !isToday(d)) {
     const days = Math.abs(differenceInDays(d, new Date()));
     return { text: `${days}d overdue`, className: 'text-red-400' };
   }
-  if (isToday(d)) return { text: 'Due Today', className: 'text-amber-400' };
+
+  if (isToday(d))    return { text: 'Due Today',    className: 'text-amber-400' };
   if (isTomorrow(d)) return { text: 'Due Tomorrow', className: 'text-blue-400' };
+
   return { text: format(d, 'MMM d, yyyy'), className: 'text-slate-400' };
 };
 
@@ -32,7 +37,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, showAssignee = fa
   const sc = statusConfig[task.status];
   const due = getDueDateLabel(task.due_date);
   const isCompleted = task.status === 'completed';
-  const isOverdue = task.status === 'overdue';
+  const isOverdue   = task.status === 'overdue';
 
   return (
     <div
@@ -46,18 +51,23 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, showAssignee = fa
         }
       `}
     >
-      {/* Checkbox / Complete button */}
+      {/* Complete Checkbox */}
       {!isCompleted && onComplete && (
         <button
           onClick={() => onComplete(task.id)}
           className={`
             mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 transition-all duration-200
             hover:scale-110 active:scale-95
-            ${isOverdue ? 'border-red-500 hover:bg-red-500/20' : 'border-slate-600 hover:border-cyan-500 hover:bg-cyan-500/10'}
+            ${isOverdue
+              ? 'border-red-500 hover:bg-red-500/20'
+              : 'border-slate-600 hover:border-cyan-500 hover:bg-cyan-500/10'
+            }
           `}
           title="Mark as complete"
         />
       )}
+
+      {/* Completed indicator */}
       {isCompleted && (
         <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-md bg-emerald-500/30 border-2 border-emerald-500 flex items-center justify-center">
           <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +76,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, showAssignee = fa
         </div>
       )}
 
-      {/* Content */}
+      {/* Task Details */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <p className={`font-medium text-sm leading-tight ${isCompleted ? 'line-through text-slate-500' : 'text-white'}`}>
@@ -92,7 +102,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, showAssignee = fa
               <div
                 key={w}
                 className={`w-2 h-2 rounded-full transition-all ${
-                  w <= task.weight_points ? weightColors[task.weight_points] : 'bg-white/10'
+                  w <= task.weight_points
+                    ? weightColors[task.weight_points]
+                    : 'bg-white/10'
                 }`}
               />
             ))}

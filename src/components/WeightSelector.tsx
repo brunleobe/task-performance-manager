@@ -1,3 +1,4 @@
+// Task Weight / Difficulty rating selector (1-5)
 import React from 'react';
 
 interface WeightSelectorProps {
@@ -6,11 +7,11 @@ interface WeightSelectorProps {
 }
 
 const weightLabels: Record<number, { label: string; color: string; desc: string }> = {
-  1: { label: '1', color: 'bg-slate-500 border-slate-400 text-white', desc: 'Trivial' },
-  2: { label: '2', color: 'bg-blue-500 border-blue-400 text-white', desc: 'Easy' },
-  3: { label: '3', color: 'bg-amber-500 border-amber-400 text-white', desc: 'Medium' },
+  1: { label: '1', color: 'bg-slate-500 border-slate-400 text-white',  desc: 'Trivial' },
+  2: { label: '2', color: 'bg-blue-500 border-blue-400 text-white',    desc: 'Easy' },
+  3: { label: '3', color: 'bg-amber-500 border-amber-400 text-white',  desc: 'Medium' },
   4: { label: '4', color: 'bg-orange-500 border-orange-400 text-white', desc: 'Hard' },
-  5: { label: '5', color: 'bg-red-500 border-red-400 text-white', desc: 'Critical' },
+  5: { label: '5', color: 'bg-red-500 border-red-400 text-white',      desc: 'Critical' },
 };
 
 const WeightSelector: React.FC<WeightSelectorProps> = ({ value, onChange }) => {
@@ -35,8 +36,10 @@ const WeightSelector: React.FC<WeightSelectorProps> = ({ value, onChange }) => {
           </button>
         ))}
       </div>
+
       <p className="text-xs text-slate-500 text-center">
-        Weight: <span className="text-slate-300 font-medium">{weightLabels[value].desc}</span>
+        Weight:{' '}
+        <span className="text-slate-300 font-medium">{weightLabels[value].desc}</span>
         {' '}({value} point{value > 1 ? 's' : ''})
       </p>
     </div>

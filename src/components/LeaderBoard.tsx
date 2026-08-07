@@ -1,3 +1,4 @@
+// Team KPI Leaderboard component
 import React, { useEffect, useRef } from 'react';
 import type { KPILog } from '../types';
 
@@ -5,6 +6,7 @@ interface LeaderBoardProps {
   entries: KPILog[];
 }
 
+// Rank badge helper
 const getRankBadge = (rank: number) => {
   if (rank === 1) return { emoji: '🥇', color: 'text-yellow-400' };
   if (rank === 2) return { emoji: '🥈', color: 'text-slate-300' };
@@ -12,6 +14,7 @@ const getRankBadge = (rank: number) => {
   return { emoji: `#${rank}`, color: 'text-slate-500' };
 };
 
+// Bar gradient helper
 const getBarColor = (score: number) => {
   if (score >= 80) return 'from-cyan-500 to-blue-500';
   if (score >= 60) return 'from-amber-500 to-orange-500';
@@ -20,15 +23,17 @@ const getBarColor = (score: number) => {
 
 const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
   const barRefs = useRef<(HTMLDivElement | null)[]>([]);
-
   const sorted = [...entries].sort((a, b) => b.kpi_score - a.kpi_score);
 
+  // Staggered width animation for progress bars
   useEffect(() => {
     sorted.forEach((entry, i) => {
       const bar = barRefs.current[i];
       if (!bar) return;
+
       bar.style.width = '0%';
       const delay = 200 + i * 120;
+
       setTimeout(() => {
         bar.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
         bar.style.width = `${entry.kpi_score}%`;
@@ -41,6 +46,7 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
       {sorted.map((entry, index) => {
         const rank = getRankBadge(index + 1);
         const barColor = getBarColor(entry.kpi_score);
+
         return (
           <div
             key={entry.user_id}
@@ -56,7 +62,7 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
                 {entry.kpi_score.toFixed(1)}%
               </span>
             </div>
-            {/* Progress bar */}
+
             <div className="h-2 rounded-full bg-white/[0.05] overflow-hidden">
               <div
                 ref={el => { barRefs.current[index] = el; }}
@@ -64,6 +70,7 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
                 style={{ filter: 'drop-shadow(0 0 4px currentColor)' }}
               />
             </div>
+
             <div className="flex justify-between text-xs text-slate-500 mt-1.5">
               <span>{entry.total_weight_completed}/{entry.total_weight_assigned} pts completed</span>
               <span>{entry.on_time_count} on-time</span>

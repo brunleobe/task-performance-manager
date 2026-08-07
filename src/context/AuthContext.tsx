@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+// Global Authentication Context & Provider with Backend API Integration
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { AuthUser, LoginCredentials } from '../types';
+import { api } from '../services/api';
 import { DEMO_USERS, DEMO_CREDENTIALS } from '../data/mockData';
 
 interface AuthContextType {
@@ -19,7 +21,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Restore session from localStorage
     const storedToken = localStorage.getItem('tpm_token');
     const storedUser = localStorage.getItem('tpm_user');
     if (storedToken && storedUser) {
@@ -35,32 +36,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
-    // --- Demo Mode: validate against mock data ---
-    // Replace this block with a real API call when the backend is ready:
-    // const res = await axios.post('/api/auth/login', credentials);
-    // const { token, user } = res.data;
+    try {
+      // 1. Try real backend API login
+      const res = await api.login(credentials);
+      setToken(res.token);
+      setUser(res.user);
+      localStorage.setItem('tpm_token', res.token);
+      localStorage.setItem('tpm_user', JSON.stringify(res.user));
+    } catch (apiErr: any) {
+      // If server responded with a specific error message (e.g. Invalid password), throw it directly
+      if (apiErr.message && apiErr.message !== 'Failed to fetch' && apiErr.message !== 'Login failed') {
+        throw new Error(apiErr.message);
+      }
 
-    const expectedPassword = DEMO_CREDENTIALS[credentials.email];
-    if (!expectedPassword || expectedPassword !== credentials.password) {
-      throw new Error('Invalid email or password');
+      // 2. Demo mode fallback ONLY if server is completely unreachable (Network Error)
+      const expectedPassword = DEMO_CREDENTIALS[credentials.email];
+      if (!expectedPassword || expectedPassword !== credentials.password) {
+        throw new Error(apiErr.message || 'Invalid email or password');
+      }
+
+      const foundUser = DEMO_USERS.find(u => u.email === credentials.email);
+      if (!foundUser) throw new Error('User not found');
+
+      const mockToken = btoa(JSON.stringify({ id: foundUser.id, role: foundUser.role, exp: Date.now() + 86400000 }));
+      const authUser: AuthUser = {
+        id: foundUser.id,
+        email: foundUser.email,
+        full_name: foundUser.full_name,
+        role: foundUser.role,
+        department_id: foundUser.department_id,
+      };
+
+      setToken(mockToken);
+      setUser(authUser);
+      localStorage.setItem('tpm_token', mockToken);
+      localStorage.setItem('tpm_user', JSON.stringify(authUser));
     }
-
-    const foundUser = DEMO_USERS.find(u => u.email === credentials.email);
-    if (!foundUser) throw new Error('User not found');
-
-    const mockToken = btoa(JSON.stringify({ id: foundUser.id, role: foundUser.role, exp: Date.now() + 86400000 }));
-    const authUser: AuthUser = {
-      id: foundUser.id,
-      email: foundUser.email,
-      full_name: foundUser.full_name,
-      role: foundUser.role,
-      department_id: foundUser.department_id,
-    };
-
-    setToken(mockToken);
-    setUser(authUser);
-    localStorage.setItem('tpm_token', mockToken);
-    localStorage.setItem('tpm_user', JSON.stringify(authUser));
   };
 
   const logout = () => {

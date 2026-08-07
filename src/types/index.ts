@@ -1,11 +1,17 @@
+// Central TypeScript type definitions for the application
+
 export type UserRole = 'staff' | 'manager' | 'admin';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
 
+// Department entity
 export interface Department {
   id: string;
   name: string;
+  user_count?: number;
+  created_at?: string;
 }
 
+// User account
 export interface User {
   id: string;
   email: string;
@@ -16,6 +22,7 @@ export interface User {
   created_at: string;
 }
 
+// Task entity assigned by managers to staff
 export interface Task {
   id: string;
   title: string;
@@ -30,6 +37,7 @@ export interface Task {
   created_at: string;
 }
 
+// Monthly KPI log for a staff member
 export interface KPILog {
   id: string;
   user_id: string;
@@ -41,6 +49,7 @@ export interface KPILog {
   kpi_score: number;
 }
 
+// Auth payload stored in state/context
 export interface AuthUser {
   id: string;
   email: string;
@@ -49,16 +58,19 @@ export interface AuthUser {
   department_id: string;
 }
 
+// Form credentials
 export interface LoginCredentials {
   email: string;
   password: string;
 }
 
+// API auth response
 export interface AuthResponse {
   token: string;
   user: AuthUser;
 }
 
+// Payload for creating a new task
 export interface CreateTaskPayload {
   title: string;
   description: string;

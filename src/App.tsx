@@ -1,11 +1,13 @@
+// Root App Router with Protected Routes for Staff, Manager, and Admin
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import StaffDashboard from './pages/StaffDashboard';
 import ManagerDashboard from './pages/ManagerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 
-// Protected route wrapper
+// Auth guard wrapper for protected routes
 const ProtectedRoute: React.FC<{
   element: React.ReactElement;
   requiredRole?: string;
@@ -30,6 +32,14 @@ const ProtectedRoute: React.FC<{
   return element;
 };
 
+// Returns role-appropriate dashboard route
+const getDashboardRoute = (role?: string) => {
+  if (role === 'admin') return '/admin/dashboard';
+  if (role === 'manager') return '/manager/dashboard';
+  return '/staff/dashboard';
+};
+
+// Route definitions
 const AppRoutes: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
@@ -39,7 +49,7 @@ const AppRoutes: React.FC = () => {
         path="/login"
         element={
           isAuthenticated
-            ? <Navigate to={user?.role === 'manager' ? '/manager/dashboard' : '/staff/dashboard'} replace />
+            ? <Navigate to={getDashboardRoute(user?.role)} replace />
             : <Login />
         }
       />
@@ -51,12 +61,15 @@ const AppRoutes: React.FC = () => {
         path="/manager/dashboard"
         element={<ProtectedRoute element={<ManagerDashboard />} requiredRole="manager" />}
       />
-      {/* Root: redirect based on role */}
+      <Route
+        path="/admin/dashboard"
+        element={<ProtectedRoute element={<AdminDashboard />} requiredRole="admin" />}
+      />
       <Route
         path="/"
         element={
           isAuthenticated
-            ? <Navigate to={user?.role === 'manager' ? '/manager/dashboard' : '/staff/dashboard'} replace />
+            ? <Navigate to={getDashboardRoute(user?.role)} replace />
             : <Navigate to="/login" replace />
         }
       />

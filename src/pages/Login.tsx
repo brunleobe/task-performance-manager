@@ -1,3 +1,4 @@
+// Login Page component with Admin Demo account option
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -5,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,13 +17,15 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+
     try {
       await login({ email, password });
-      // Redirect based on role (AuthContext stores the user, router reads it)
       const stored = localStorage.getItem('tpm_user');
       if (stored) {
         const u = JSON.parse(stored);
-        navigate(u.role === 'manager' ? '/manager/dashboard' : '/staff/dashboard');
+        if (u.role === 'admin') navigate('/admin/dashboard');
+        else if (u.role === 'manager') navigate('/manager/dashboard');
+        else navigate('/staff/dashboard');
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -30,8 +34,12 @@ const Login: React.FC = () => {
     }
   };
 
-  const fillDemo = (type: 'manager' | 'staff') => {
-    if (type === 'manager') {
+  // Auto-fills credentials for testing
+  const fillDemo = (type: 'admin' | 'manager' | 'staff') => {
+    if (type === 'admin') {
+      setEmail('admin@company.com');
+      setPassword('admin123');
+    } else if (type === 'manager') {
       setEmail('manager@company.com');
       setPassword('manager123');
     } else {
@@ -42,12 +50,12 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#080c18] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background orbs */}
+      {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" style={{ animationDelay: '1s' }} />
 
       <div className="w-full max-w-md animate-fade-in">
-        {/* Logo / Brand */}
+        {/* Header Branding */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 mb-4 shadow-lg shadow-cyan-500/20">
             <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +66,7 @@ const Login: React.FC = () => {
           <p className="text-slate-400 text-sm mt-1">Internal Task & Performance System</p>
         </div>
 
-        {/* Card */}
+        {/* Login Form Card */}
         <div className="bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 shadow-2xl">
           <h2 className="text-lg font-semibold text-white mb-6">Sign in to your account</h2>
 
@@ -69,7 +77,6 @@ const Login: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Email address</label>
               <input
@@ -85,7 +92,6 @@ const Login: React.FC = () => {
               />
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
               <div className="relative">
@@ -119,7 +125,6 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Submit */}
             <button
               id="login-btn"
               type="submit"
@@ -143,29 +148,41 @@ const Login: React.FC = () => {
             </button>
           </form>
 
-          {/* Demo credentials */}
+          {/* Quick Demo Fill Buttons */}
           <div className="mt-6 pt-6 border-t border-white/[0.06]">
             <p className="text-xs text-slate-500 text-center mb-3">Demo accounts — click to fill</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                id="demo-admin-btn"
+                type="button"
+                onClick={() => fillDemo('admin')}
+                className="py-2 px-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-slate-300
+                  hover:bg-white/[0.08] hover:border-white/10 transition-all duration-200 text-left"
+              >
+                <div className="font-medium text-[11px]">👑 Admin</div>
+                <div className="text-slate-500 text-[9px] mt-0.5 truncate">System Admin</div>
+              </button>
+
               <button
                 id="demo-manager-btn"
                 type="button"
                 onClick={() => fillDemo('manager')}
-                className="py-2 px-3 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-slate-300
+                className="py-2 px-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-slate-300
                   hover:bg-white/[0.08] hover:border-white/10 transition-all duration-200 text-left"
               >
-                <div className="font-medium">👔 Manager</div>
-                <div className="text-slate-500 text-[10px] mt-0.5">Rachel Adams</div>
+                <div className="font-medium text-[11px]">👔 Manager</div>
+                <div className="text-slate-500 text-[9px] mt-0.5 truncate">Rachel Adams</div>
               </button>
+
               <button
                 id="demo-staff-btn"
                 type="button"
                 onClick={() => fillDemo('staff')}
-                className="py-2 px-3 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-slate-300
+                className="py-2 px-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-slate-300
                   hover:bg-white/[0.08] hover:border-white/10 transition-all duration-200 text-left"
               >
-                <div className="font-medium">💼 Staff</div>
-                <div className="text-slate-500 text-[10px] mt-0.5">Sarah Connor</div>
+                <div className="font-medium text-[11px]">💼 Staff</div>
+                <div className="text-slate-500 text-[9px] mt-0.5 truncate">Sarah Connor</div>
               </button>
             </div>
           </div>

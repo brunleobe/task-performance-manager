@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+// Manager Dashboard page with API Integration
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LeaderBoard from '../components/LeaderBoard';
 import TaskCard from '../components/TaskCard';
 import WeightSelector from '../components/WeightSelector';
+import { api } from '../services/api';
 import { DEMO_TASKS, DEMO_KPI_LOGS, DEMO_USERS } from '../data/mockData';
 import type { Task, KPILog, CreateTaskPayload } from '../types';
 import { format, addDays } from 'date-fns';
@@ -14,11 +16,10 @@ const ManagerDashboard: React.FC = () => {
 
   const staffMembers = DEMO_USERS.filter(u => u.role === 'staff');
 
-  const [tasks, setTasks] = useState<Task[]>(DEMO_TASKS);
-  const [kpiLogs, setKpiLogs] = useState<KPILog[]>(DEMO_KPI_LOGS);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [kpiLogs, setKpiLogs] = useState<KPILog[]>([]);
   const [activeTab, setActiveTab] = useState<'create' | 'tasks'>('create');
 
-  // Form state
   const [form, setForm] = useState<CreateTaskPayload>({
     title: '',
     description: '',
@@ -26,10 +27,32 @@ const ManagerDashboard: React.FC = () => {
     weight_points: 3,
     due_date: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
   });
+
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch tasks and team leaderboard from backend API on mount
+  const loadDashboardData = async () => {
+    try {
+      const [fetchedTasks, leaderboard] = await Promise.all([
+        api.getTasks(),
+        api.getLeaderboard(),
+      ]);
+      setTasks(fetchedTasks);
+      setKpiLogs(leaderboard);
+    } catch {
+      // Fallback to demo data if backend server is offline
+      setTasks(DEMO_TASKS);
+      setKpiLogs(DEMO_KPI_LOGS);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // Handles task creation via backend API
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -40,73 +63,82 @@ const ManagerDashboard: React.FC = () => {
 
     setIsSubmitting(true);
 
-    // Simulate API delay
-    await new Promise(r => setTimeout(r, 600));
-
     const assignee = staffMembers.find(u => u.id === form.assigned_to);
-    const newTask: Task = {
-      id: `t${Date.now()}`,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      assigned_to: form.assigned_to,
-      assigned_to_name: assignee?.full_name,
-      created_by: user?.id ?? 'u1',
-      weight_points: form.weight_points,
-      status: 'pending',
-      due_date: new Date(form.due_date).toISOString(),
-      completed_at: null,
-      created_at: new Date().toISOString(),
-    };
 
-    setTasks(prev => [newTask, ...prev]);
+    try {
+      await api.createTask(form);
+      setFormSuccess(`Task "${form.title.trim()}" assigned to ${assignee?.full_name}!`);
+      await loadDashboardData();
+    } catch (err: any) {
+      // Fallback local update if API is unreachable
+      const newTask: Task = {
+        id: `t${Date.now()}`,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        assigned_to: form.assigned_to,
+        assigned_to_name: assignee?.full_name,
+        created_by: user?.id ?? 'u1',
+        weight_points: form.weight_points,
+        status: 'pending',
+        due_date: new Date(form.due_date).toISOString(),
+        completed_at: null,
+        created_at: new Date().toISOString(),
+      };
 
-    // Update KPI log for assignee (add weight to assigned)
-    setKpiLogs(prev => prev.map(k => {
-      if (k.user_id !== form.assigned_to) return k;
-      const newAssigned = k.total_weight_assigned + form.weight_points;
-      const score = ((k.total_weight_completed / newAssigned) * 0.4 +
-        (k.on_time_count / Math.max(1, prev.filter(x => x.user_id === k.user_id).length)) * 0.6) * 100;
-      return { ...k, total_weight_assigned: newAssigned, kpi_score: Math.max(0, Math.min(100, score)) };
-    }));
-
-    setFormSuccess(`Task "${newTask.title}" assigned to ${assignee?.full_name}!`);
-    setForm({ title: '', description: '', assigned_to: form.assigned_to, weight_points: 3, due_date: format(addDays(new Date(), 7), 'yyyy-MM-dd') });
-    setIsSubmitting(false);
+      setTasks(prev => [newTask, ...prev]);
+      setFormSuccess(`Task "${newTask.title}" assigned to ${assignee?.full_name}!`);
+    } finally {
+      setForm({
+        title: '',
+        description: '',
+        assigned_to: form.assigned_to,
+        weight_points: 3,
+        due_date: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
+      });
+      setIsSubmitting(false);
+    }
   };
 
-  const handleExport = () => {
-    const period = format(new Date(), 'yyyy-MM');
-    const rows = [
-      ['Rank', 'Name', 'KPI Score', 'Weight Assigned', 'Weight Completed', 'On-Time Tasks', 'Period'],
-      ...[...kpiLogs]
-        .sort((a, b) => b.kpi_score - a.kpi_score)
-        .map((k, i) => [
-          i + 1,
-          k.user_name ?? 'N/A',
-          `${k.kpi_score.toFixed(1)}%`,
-          k.total_weight_assigned,
-          k.total_weight_completed,
-          k.on_time_count,
-          k.period,
-        ]),
-    ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `team-kpi-${period}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // Triggers CSV download of monthly team KPI report
+  const handleExport = async () => {
+    try {
+      await api.exportKpiReportCsv();
+    } catch {
+      const period = format(new Date(), 'yyyy-MM');
+      const rows = [
+        ['Rank', 'Name', 'KPI Score', 'Weight Assigned', 'Weight Completed', 'On-Time Tasks', 'Period'],
+        ...[...kpiLogs]
+          .sort((a, b) => b.kpi_score - a.kpi_score)
+          .map((k, i) => [
+            i + 1,
+            k.user_name ?? 'N/A',
+            `${k.kpi_score.toFixed(1)}%`,
+            k.total_weight_assigned,
+            k.total_weight_completed,
+            k.on_time_count,
+            k.period,
+          ]),
+      ];
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `team-kpi-${period}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   };
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
-  const allTasksSorted = [...tasks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const allTasksSorted = [...tasks].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   return (
     <div className="min-h-screen bg-[#080c18] text-white">
-      {/* Header */}
+      {/* Navigation Header */}
       <header className="border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -137,6 +169,7 @@ const ManagerDashboard: React.FC = () => {
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white">Manager Dashboard</h1>
@@ -144,9 +177,9 @@ const ManagerDashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* ── Left: Create Task & Task List ── */}
+          {/* Create Task Form & Task List Panel */}
           <div className="lg:col-span-3 space-y-4">
-            {/* Tab switcher */}
+            {/* Tab Controls */}
             <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl w-fit">
               {(['create', 'tasks'] as const).map(tab => (
                 <button
@@ -164,6 +197,7 @@ const ManagerDashboard: React.FC = () => {
               ))}
             </div>
 
+            {/* Create Task Tab */}
             {activeTab === 'create' && (
               <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 animate-fade-in">
                 <h2 className="text-base font-semibold text-white mb-5 flex items-center gap-2">
@@ -176,6 +210,7 @@ const ManagerDashboard: React.FC = () => {
                     {formError}
                   </div>
                 )}
+
                 {formSuccess && (
                   <div className="mb-4 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm animate-slide-up flex items-center gap-2">
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,7 +221,6 @@ const ManagerDashboard: React.FC = () => {
                 )}
 
                 <form onSubmit={handleCreate} className="space-y-4">
-                  {/* Assignee */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Assignee</label>
                     <select
@@ -203,7 +237,6 @@ const ManagerDashboard: React.FC = () => {
                     </select>
                   </div>
 
-                  {/* Task name */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Task Name</label>
                     <input
@@ -217,7 +250,6 @@ const ManagerDashboard: React.FC = () => {
                     />
                   </div>
 
-                  {/* Description */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Description</label>
                     <textarea
@@ -231,7 +263,6 @@ const ManagerDashboard: React.FC = () => {
                     />
                   </div>
 
-                  {/* Due date */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Due Date</label>
                     <input
@@ -246,7 +277,6 @@ const ManagerDashboard: React.FC = () => {
                     />
                   </div>
 
-                  {/* Weight */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Difficulty / Weight</label>
                     <WeightSelector
@@ -280,6 +310,7 @@ const ManagerDashboard: React.FC = () => {
               </div>
             )}
 
+            {/* All Tasks Tab */}
             {activeTab === 'tasks' && (
               <div className="space-y-2 animate-fade-in">
                 {allTasksSorted.map((task, i) => (
@@ -291,7 +322,7 @@ const ManagerDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* ── Right: Team KPI Leaderboard ── */}
+          {/* Leaderboard & Stats Section */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-white flex items-center gap-2">
@@ -323,13 +354,12 @@ const ManagerDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick stats */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Total Staff', value: staffMembers.length, icon: '👥' },
-                { label: 'Active Tasks', value: tasks.filter(t => t.status !== 'completed').length, icon: '📋' },
-                { label: 'Completed', value: tasks.filter(t => t.status === 'completed').length, icon: '✅' },
-                { label: 'Overdue', value: tasks.filter(t => t.status === 'overdue').length, icon: '⚠️' },
+                { label: 'Total Staff',   value: staffMembers.length, icon: '👥' },
+                { label: 'Active Tasks',  value: tasks.filter(t => t.status !== 'completed').length, icon: '📋' },
+                { label: 'Completed',     value: tasks.filter(t => t.status === 'completed').length, icon: '✅' },
+                { label: 'Overdue',       value: tasks.filter(t => t.status === 'overdue').length, icon: '⚠️' },
               ].map(stat => (
                 <div key={stat.label} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center animate-fade-in">
                   <p className="text-lg">{stat.icon}</p>

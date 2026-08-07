@@ -1,7 +1,24 @@
-import type { Task, User, KPILog } from '../types';
+// Mock data for demo mode
+import type { Task, User, KPILog, Department } from '../types';
 
-// ─── Demo Users ────────────────────────────────────────────────────────────────
+// Demo department list
+export const DEMO_DEPARTMENTS: Department[] = [
+  { id: 'd1', name: 'Engineering', user_count: 5 },
+  { id: 'd2', name: 'Product & Design', user_count: 2 },
+  { id: 'd3', name: 'Operations', user_count: 1 },
+];
+
+// Demo user accounts
 export const DEMO_USERS: User[] = [
+  {
+    id: 'u0',
+    email: 'admin@company.com',
+    full_name: 'System Admin',
+    role: 'admin',
+    department_id: 'd1',
+    department_name: 'Engineering',
+    created_at: '2026-01-01T00:00:00Z',
+  },
   {
     id: 'u1',
     email: 'manager@company.com',
@@ -40,15 +57,16 @@ export const DEMO_USERS: User[] = [
   },
 ];
 
-// Demo login map — email → password
+// Demo login credentials map
 export const DEMO_CREDENTIALS: Record<string, string> = {
+  'admin@company.com': 'admin123',
   'manager@company.com': 'manager123',
   'sarah@company.com': 'staff123',
   'alex@company.com': 'staff123',
   'james@company.com': 'staff123',
 };
 
-// ─── Demo Tasks ────────────────────────────────────────────────────────────────
+// Relative date helpers for realistic deadlines
 const now = new Date();
 const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
 const today = new Date(now);
@@ -58,6 +76,7 @@ const lastWeek = new Date(now); lastWeek.setDate(now.getDate() - 7);
 
 const fmt = (d: Date) => d.toISOString();
 
+// Demo tasks
 export const DEMO_TASKS: Task[] = [
   {
     id: 't1',
@@ -152,13 +171,13 @@ export const DEMO_TASKS: Task[] = [
   },
 ];
 
-// ─── Demo KPI Logs ─────────────────────────────────────────────────────────────
+// Pre-computed demo KPI logs
 export const DEMO_KPI_LOGS: KPILog[] = [
   {
     id: 'k1',
     user_id: 'u2',
     user_name: 'Sarah Connor',
-    period: '2026-07',
+    period: '2026-08',
     total_weight_assigned: 14,
     total_weight_completed: 11,
     on_time_count: 12,
@@ -168,7 +187,7 @@ export const DEMO_KPI_LOGS: KPILog[] = [
     id: 'k2',
     user_id: 'u3',
     user_name: 'Alex Mercer',
-    period: '2026-07',
+    period: '2026-08',
     total_weight_assigned: 12,
     total_weight_completed: 9,
     on_time_count: 9,
@@ -178,7 +197,7 @@ export const DEMO_KPI_LOGS: KPILog[] = [
     id: 'k3',
     user_id: 'u4',
     user_name: 'James Wright',
-    period: '2026-07',
+    period: '2026-08',
     total_weight_assigned: 10,
     total_weight_completed: 6,
     on_time_count: 6,

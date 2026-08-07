@@ -1,30 +1,84 @@
-import React, { useState, useMemo } from 'react';
+// Staff Dashboard page with live DB API Integration and loading states
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import KPIRing from '../components/KPIRing';
 import TaskCard from '../components/TaskCard';
+import { api } from '../services/api';
 import { DEMO_TASKS, DEMO_KPI_LOGS } from '../data/mockData';
 import type { Task } from '../types';
 import { format } from 'date-fns';
 
 const StaffDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const navigate = useNavigate();
 
-  const [tasks, setTasks] = useState<Task[]>(
-    DEMO_TASKS.filter(t => t.assigned_to === user?.id)
-  );
-
-  const kpiLog = DEMO_KPI_LOGS.find(k => k.user_id === user?.id);
-  const [kpiScore, setKpiScore] = useState(kpiLog?.kpi_score ?? 0);
-  const [kpiData, setKpiData] = useState(kpiLog ?? {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [kpiScore, setKpiScore] = useState(0);
+  const [kpiData, setKpiData] = useState({
     total_weight_assigned: 0,
     total_weight_completed: 0,
     on_time_count: 0,
     kpi_score: 0,
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLiveMode, setIsLiveMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Sort: overdue → today → in_progress → pending → completed
+  // Determine if the stored token is a real JWT (3 dot-separated segments)
+  const hasRealToken = token ? token.split('.').length === 3 : false;
+
+  // Fetch tasks and KPI summary from backend API on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      if (!hasRealToken) {
+        // Demo mode: use local mock data
+        const userTasks = DEMO_TASKS.filter(t => t.assigned_to === user?.id);
+        const kpiLog = DEMO_KPI_LOGS.find(k => k.user_id === user?.id);
+        setTasks(userTasks);
+        setKpiScore(kpiLog?.kpi_score ?? 0);
+        setKpiData(kpiLog ?? { total_weight_assigned: 0, total_weight_completed: 0, on_time_count: 0, kpi_score: 0 });
+        setIsLiveMode(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Live mode: call real backend APIs
+      try {
+        const [fetchedTasks, summary] = await Promise.all([
+          api.getTasks(),
+          api.getMySummary(),
+        ]);
+        setTasks(fetchedTasks);
+        setKpiScore(summary.kpi_score);
+        setKpiData({
+          total_weight_assigned: summary.total_weight_assigned,
+          total_weight_completed: summary.total_weight_completed,
+          on_time_count: summary.on_time_count,
+          kpi_score: summary.kpi_score,
+        });
+        setIsLiveMode(true);
+      } catch (err: any) {
+        setError('Could not connect to server. Showing local data.');
+        // Graceful fallback to demo data when server unreachable
+        const userTasks = DEMO_TASKS.filter(t => t.assigned_to === user?.id);
+        const kpiLog = DEMO_KPI_LOGS.find(k => k.user_id === user?.id);
+        setTasks(userTasks);
+        setKpiScore(kpiLog?.kpi_score ?? 0);
+        setKpiData(kpiLog ?? { total_weight_assigned: 0, total_weight_completed: 0, on_time_count: 0, kpi_score: 0 });
+        setIsLiveMode(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user?.id) fetchData();
+  }, [user?.id, hasRealToken]);
+
+  // Sort tasks by urgency: overdue -> in_progress -> pending -> completed
   const sortedTasks = useMemo(() => {
     const order: Record<string, number> = { overdue: 0, in_progress: 1, pending: 2, completed: 3 };
     return [...tasks].sort((a, b) => {
@@ -37,11 +91,11 @@ const StaffDashboard: React.FC = () => {
   const completedCount = tasks.filter(t => t.status === 'completed').length;
   const totalCount = tasks.length;
 
-  // KPI formula: (completed_weight/assigned_weight * 0.4) + (on_time/total_completed * 0.6) * 100
+  // Frontend calculation fallback engine
   const recalculateKPI = (updatedTasks: Task[]) => {
     const completed = updatedTasks.filter(t => t.status === 'completed');
-    const totalAssigned = updatedTasks.reduce((s, t) => s + t.weight_points, 0);
-    const totalCompleted = completed.reduce((s, t) => s + t.weight_points, 0);
+    const totalAssigned = updatedTasks.reduce((sum, t) => sum + t.weight_points, 0);
+    const totalCompleted = completed.reduce((sum, t) => sum + t.weight_points, 0);
     const onTime = completed.filter(t => t.completed_at && t.completed_at <= t.due_date).length;
     const totalCompletedCount = completed.length;
 
@@ -60,13 +114,31 @@ const StaffDashboard: React.FC = () => {
     }));
   };
 
-  const handleComplete = (taskId: string) => {
+  // Marks task as completed via API with optimistic UI update
+  const handleComplete = async (taskId: string) => {
     const now = new Date().toISOString();
     const updated = tasks.map(t =>
       t.id === taskId ? { ...t, status: 'completed' as const, completed_at: now } : t
     );
+
     setTasks(updated);
     recalculateKPI(updated);
+
+    try {
+      await api.completeTask(taskId);
+      if (hasRealToken) {
+        const summary = await api.getMySummary();
+        setKpiScore(summary.kpi_score);
+        setKpiData({
+          total_weight_assigned: summary.total_weight_assigned,
+          total_weight_completed: summary.total_weight_completed,
+          on_time_count: summary.on_time_count,
+          kpi_score: summary.kpi_score,
+        });
+      }
+    } catch {
+      // Optimistic update already applied; silently continue
+    }
   };
 
   const handleLogout = () => {
@@ -80,7 +152,7 @@ const StaffDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#080c18] text-white">
-      {/* Header */}
+      {/* Navigation Header */}
       <header className="border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -96,6 +168,15 @@ const StaffDashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Live / Demo mode badge */}
+            <span className={`hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
+              isLiveMode
+                ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              {isLiveMode ? 'Live DB' : 'Demo Mode'}
+            </span>
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-white">{user?.full_name}</p>
               <p className="text-xs text-slate-500">{format(new Date(), 'MMMM yyyy')}</p>
@@ -111,15 +192,27 @@ const StaffDashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* Main */}
+      {/* Main Content */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white">My Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Welcome back, {user?.full_name?.split(' ')[0]}. Here's your task overview.</p>
+          <p className="text-slate-400 text-sm mt-1">
+            Welcome back, {user?.full_name?.split(' ')[0]}. Here's your task overview.
+          </p>
         </div>
 
+        {/* Server unreachable warning */}
+        {error && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* ── Left: Task Checklist ── */}
+          {/* Task Checklist */}
           <div className="lg:col-span-3 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-white flex items-center gap-2">
@@ -131,12 +224,20 @@ const StaffDashboard: React.FC = () => {
               </span>
             </div>
 
-            {sortedTasks.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Loading skeleton */}
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-16 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
+                ))}
+              </div>
+            ) : sortedTasks.length === 0 ? (
+              <div className="text-center py-16 bg-white/[0.02] border border-white/[0.06] rounded-2xl">
+                <svg className="w-12 h-12 mx-auto mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                <p className="text-sm">No tasks assigned yet</p>
+                <p className="text-sm text-slate-500">No tasks assigned to you yet</p>
+                <p className="text-xs text-slate-600 mt-1">Ask your manager to assign you a task</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -156,7 +257,7 @@ const StaffDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* ── Right: KPI Performance ── */}
+          {/* KPI Performance Section */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-base font-semibold text-white flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-blue-400" />
@@ -164,39 +265,38 @@ const StaffDashboard: React.FC = () => {
             </h2>
 
             <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 space-y-6 animate-fade-in">
-              {/* Period badge */}
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500 bg-white/[0.04] px-3 py-1 rounded-full border border-white/[0.06]">
                   {format(new Date(), 'MMMM yyyy')}
                 </span>
               </div>
 
-              {/* KPI Ring */}
               <div className="flex justify-center">
                 <KPIRing percentage={kpiScore} size={180} />
               </div>
 
-              {/* Stats grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-white tabular-nums">{completedCount}/{totalCount}</p>
                   <p className="text-xs text-slate-500 mt-0.5">Tasks Done</p>
                 </div>
+
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-white tabular-nums">{onTimeRate}%</p>
                   <p className="text-xs text-slate-500 mt-0.5">On-Time Rate</p>
                 </div>
+
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-white tabular-nums">{kpiData.total_weight_completed}</p>
                   <p className="text-xs text-slate-500 mt-0.5">Points Earned</p>
                 </div>
+
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-white tabular-nums">{kpiData.total_weight_assigned}</p>
                   <p className="text-xs text-slate-500 mt-0.5">Points Assigned</p>
                 </div>
               </div>
 
-              {/* Progress bar */}
               <div>
                 <div className="flex justify-between text-xs text-slate-500 mb-1.5">
                   <span>Task Completion</span>
