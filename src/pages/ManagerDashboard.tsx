@@ -1,4 +1,4 @@
-// Manager Dashboard page with API Integration
+// Manager Dashboard page with live DB API Integration
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,18 +7,19 @@ import TaskCard from '../components/TaskCard';
 import WeightSelector from '../components/WeightSelector';
 import { api } from '../services/api';
 import { DEMO_TASKS, DEMO_KPI_LOGS, DEMO_USERS } from '../data/mockData';
-import type { Task, KPILog, CreateTaskPayload } from '../types';
+import type { Task, KPILog, User, CreateTaskPayload } from '../types';
 import { format, addDays } from 'date-fns';
 
 const ManagerDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const navigate = useNavigate();
-
-  const staffMembers = DEMO_USERS.filter(u => u.role === 'staff');
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [kpiLogs, setKpiLogs] = useState<KPILog[]>([]);
+  const [staffMembers, setStaffMembers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'create' | 'tasks'>('create');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLiveMode, setIsLiveMode] = useState(false);
 
   const [form, setForm] = useState<CreateTaskPayload>({
     title: '',
@@ -32,25 +33,52 @@ const ManagerDashboard: React.FC = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch tasks and team leaderboard from backend API on mount
+  // Determine if the stored token is a real JWT
+  const hasRealToken = token ? token.split('.').length === 3 : false;
+
+  // Load tasks, leaderboard, and real staff list from backend
   const loadDashboardData = async () => {
+    setIsLoading(true);
+
+    if (!hasRealToken) {
+      // Demo mode
+      setTasks(DEMO_TASKS);
+      setKpiLogs(DEMO_KPI_LOGS);
+      setStaffMembers(DEMO_USERS.filter(u => u.role === 'staff') as User[]);
+      setIsLiveMode(false);
+      setIsLoading(false);
+      return;
+    }
+
+    // Silently flag overdue tasks before fetching fresh data
+    await api.checkOverdue();
+
     try {
-      const [fetchedTasks, leaderboard] = await Promise.all([
+      const [fetchedTasks, leaderboard, allUsers] = await Promise.all([
         api.getTasks(),
         api.getLeaderboard(),
+        api.getAdminUsers(),
       ]);
       setTasks(fetchedTasks);
       setKpiLogs(leaderboard);
-    } catch {
-      // Fallback to demo data if backend server is offline
-      setTasks(DEMO_TASKS);
-      setKpiLogs(DEMO_KPI_LOGS);
+      setStaffMembers(allUsers.filter(u => u.role === 'staff'));
+      setIsLiveMode(true);
+    } catch (err: any) {
+      // Network unreachable: fall back to demo data
+      if (err instanceof TypeError) {
+        setTasks(DEMO_TASKS);
+        setKpiLogs(DEMO_KPI_LOGS);
+        setStaffMembers(DEMO_USERS.filter(u => u.role === 'staff') as User[]);
+        setIsLiveMode(false);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [hasRealToken]);
 
   // Handles task creation via backend API
   const handleCreate = async (e: React.FormEvent) => {
@@ -70,23 +98,7 @@ const ManagerDashboard: React.FC = () => {
       setFormSuccess(`Task "${form.title.trim()}" assigned to ${assignee?.full_name}!`);
       await loadDashboardData();
     } catch (err: any) {
-      // Fallback local update if API is unreachable
-      const newTask: Task = {
-        id: `t${Date.now()}`,
-        title: form.title.trim(),
-        description: form.description.trim(),
-        assigned_to: form.assigned_to,
-        assigned_to_name: assignee?.full_name,
-        created_by: user?.id ?? 'u1',
-        weight_points: form.weight_points,
-        status: 'pending',
-        due_date: new Date(form.due_date).toISOString(),
-        completed_at: null,
-        created_at: new Date().toISOString(),
-      };
-
-      setTasks(prev => [newTask, ...prev]);
-      setFormSuccess(`Task "${newTask.title}" assigned to ${assignee?.full_name}!`);
+      setFormError(err.message || 'Failed to create task. Please try again.');
     } finally {
       setForm({
         title: '',
@@ -153,7 +165,16 @@ const ManagerDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Live / Demo mode badge */}
+            <span className={`hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
+              isLiveMode
+                ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              {isLiveMode ? 'Live DB' : 'Demo Mode'}
+            </span>
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-white">{user?.full_name}</p>
               <p className="text-xs text-slate-500">{format(new Date(), 'MMMM yyyy')}</p>
@@ -179,14 +200,14 @@ const ManagerDashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Create Task Form & Task List Panel */}
           <div className="lg:col-span-3 space-y-4">
-            {/* Tab Controls */}
-            <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl w-fit">
+            {/* Tab Controls — scrollable on mobile */}
+            <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl w-full sm:w-fit overflow-x-auto">
               {(['create', 'tasks'] as const).map(tab => (
                 <button
                   key={tab}
                   id={`tab-${tab}`}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`flex-shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                     activeTab === tab
                       ? 'bg-white/[0.08] text-white'
                       : 'text-slate-500 hover:text-slate-300'
@@ -229,12 +250,20 @@ const ManagerDashboard: React.FC = () => {
                       onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
                       className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm
                         focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+                      disabled={isLoading}
                     >
-                      <option value="" className="bg-[#0f1729]">Select staff member...</option>
+                      <option value="" className="bg-[#0f1729]">
+                        {isLoading ? 'Loading staff...' : staffMembers.length === 0 ? 'No staff accounts found' : 'Select staff member...'}
+                      </option>
                       {staffMembers.map(s => (
                         <option key={s.id} value={s.id} className="bg-[#0f1729]">{s.full_name}</option>
                       ))}
                     </select>
+                    {isLiveMode && staffMembers.length === 0 && !isLoading && (
+                      <p className="text-xs text-amber-400 mt-1">
+                        No staff accounts yet — create staff users in the Admin Dashboard first.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -288,7 +317,7 @@ const ManagerDashboard: React.FC = () => {
                   <button
                     id="create-task-btn"
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isLoading}
                     className="w-full py-3 rounded-xl font-semibold text-sm text-white
                       bg-gradient-to-r from-purple-500 to-indigo-600
                       hover:from-purple-400 hover:to-indigo-500
@@ -313,11 +342,22 @@ const ManagerDashboard: React.FC = () => {
             {/* All Tasks Tab */}
             {activeTab === 'tasks' && (
               <div className="space-y-2 animate-fade-in">
-                {allTasksSorted.map((task, i) => (
-                  <div key={task.id} className="animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
-                    <TaskCard task={task} showAssignee />
+                {isLoading ? (
+                  [1, 2, 3].map(i => (
+                    <div key={i} className="h-16 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
+                  ))
+                ) : allTasksSorted.length === 0 ? (
+                  <div className="text-center py-16 bg-white/[0.02] border border-white/[0.06] rounded-2xl">
+                    <p className="text-sm text-slate-500">No tasks created yet</p>
+                    <p className="text-xs text-slate-600 mt-1">Switch to Create Task to assign the first task</p>
                   </div>
-                ))}
+                ) : (
+                  allTasksSorted.map((task, i) => (
+                    <div key={task.id} className="animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
+                      <TaskCard task={task} showAssignee />
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -335,7 +375,21 @@ const ManagerDashboard: React.FC = () => {
             </div>
 
             <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5">
-              <LeaderBoard entries={kpiLogs} />
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-10 rounded-lg bg-white/[0.03] animate-pulse" />
+                  ))}
+                </div>
+              ) : kpiLogs.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-2xl mb-2">📊</p>
+                  <p className="text-sm text-slate-500">No KPI data yet</p>
+                  <p className="text-xs text-slate-600 mt-1">KPI scores appear after tasks are assigned & completed</p>
+                </div>
+              ) : (
+                <LeaderBoard entries={kpiLogs} />
+              )}
 
               <div className="mt-5 pt-5 border-t border-white/[0.06]">
                 <button
@@ -356,10 +410,10 @@ const ManagerDashboard: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Total Staff',   value: staffMembers.length, icon: '👥' },
-                { label: 'Active Tasks',  value: tasks.filter(t => t.status !== 'completed').length, icon: '📋' },
-                { label: 'Completed',     value: tasks.filter(t => t.status === 'completed').length, icon: '✅' },
-                { label: 'Overdue',       value: tasks.filter(t => t.status === 'overdue').length, icon: '⚠️' },
+                { label: 'Total Staff',  value: staffMembers.length, icon: '👥' },
+                { label: 'Active Tasks', value: tasks.filter(t => t.status !== 'completed').length, icon: '📋' },
+                { label: 'Completed',    value: tasks.filter(t => t.status === 'completed').length, icon: '✅' },
+                { label: 'Overdue',      value: tasks.filter(t => t.status === 'overdue').length, icon: '⚠️' },
               ].map(stat => (
                 <div key={stat.label} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center animate-fade-in">
                   <p className="text-lg">{stat.icon}</p>

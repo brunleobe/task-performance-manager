@@ -168,11 +168,11 @@ const AdminDashboard: React.FC = () => {
           ))}
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl w-fit mb-6">
+        {/* Tab Controls — scrollable on mobile */}
+        <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl w-full sm:w-fit overflow-x-auto mb-6">
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'users' ? 'bg-white/[0.08] text-white' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
@@ -180,7 +180,7 @@ const AdminDashboard: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('departments')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'departments' ? 'bg-white/[0.08] text-white' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
@@ -292,13 +292,13 @@ const AdminDashboard: React.FC = () => {
                   {users.map(u => (
                     <div
                       key={u.id}
-                      className="flex items-center justify-between p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all"
                     >
-                      <div>
-                        <p className="font-medium text-sm text-white">{u.full_name}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{u.email}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-white truncate">{u.full_name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">{u.email}</p>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                         <span className="text-xs text-slate-400 bg-white/[0.04] px-2.5 py-1 rounded-md">
                           {u.department_name ?? 'Engineering'}
                         </span>
@@ -367,16 +367,16 @@ const AdminDashboard: React.FC = () => {
                   {departments.map(d => (
                     <div
                       key={d.id}
-                      className="flex items-center justify-between p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-xl">🏢</span>
-                        <div>
-                          <p className="font-semibold text-sm text-white">{d.name}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">ID: {d.id}</p>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-white truncate">{d.name}</p>
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">ID: {d.id}</p>
                         </div>
                       </div>
-                      <span className="text-xs text-slate-400 bg-white/[0.04] px-3 py-1 rounded-full border border-white/[0.06]">
+                      <span className="text-xs text-slate-400 bg-white/[0.04] px-3 py-1 rounded-full border border-white/[0.06] self-start sm:self-auto flex-shrink-0">
                         {(d as any).user_count ?? users.filter(u => u.department_id === d.id).length} members
                       </span>
                     </div>

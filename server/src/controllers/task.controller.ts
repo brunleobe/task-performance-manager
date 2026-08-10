@@ -1,4 +1,4 @@
-// Task Controller (Get, Create, Complete Tasks)
+// Task Controller (Get, Create, Complete, Overdue Check Tasks)
 import { Response } from 'express';
 import { z } from 'zod';
 import mssql from 'mssql';
@@ -112,5 +112,28 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('Complete Task Error:', err);
     return res.status(500).json({ message: 'Failed to complete task' });
+  }
+};
+
+// POST /api/tasks/check-overdue — flags all past-due pending/in_progress tasks as 'overdue'
+export const checkOverdue = async (req: AuthRequest, res: Response) => {
+  try {
+    const pool = await getPool();
+    const now = new Date().toISOString();
+
+    const result = await pool.request()
+      .input('now', mssql.DateTime2, now)
+      .query(`
+        UPDATE Tasks
+        SET status = 'overdue'
+        WHERE status IN ('pending', 'in_progress')
+          AND due_date < @now
+      `);
+
+    const updated = result.rowsAffected[0];
+    return res.json({ message: `${updated} task(s) marked as overdue`, updated });
+  } catch (err) {
+    console.error('Check Overdue Error:', err);
+    return res.status(500).json({ message: 'Failed to check overdue tasks' });
   }
 };

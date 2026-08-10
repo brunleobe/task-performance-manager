@@ -110,6 +110,19 @@ export const api = {
     if (!res.ok) throw new Error('Failed to mark task completed');
   },
 
+  // Silently flags all past-due tasks as overdue (called on dashboard load)
+  checkOverdue: async (): Promise<void> => {
+    if (!isRealJwt()) return;
+    try {
+      await fetch(`${API_BASE_URL}/tasks/check-overdue`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+    } catch {
+      // Non-critical: silently ignore if this fails
+    }
+  },
+
   // Manager: fetch team leaderboard
   getLeaderboard: async (): Promise<KPILog[]> => {
     if (!isRealJwt()) return DEMO_KPI_LOGS;

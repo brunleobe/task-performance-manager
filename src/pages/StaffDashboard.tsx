@@ -48,6 +48,9 @@ const StaffDashboard: React.FC = () => {
 
       // Live mode: call real backend APIs
       try {
+        // Silently flag any past-due tasks before loading
+        await api.checkOverdue();
+
         const [fetchedTasks, summary] = await Promise.all([
           api.getTasks(),
           api.getMySummary(),
@@ -167,9 +170,9 @@ const StaffDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Live / Demo mode badge */}
-            <span className={`hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
+            <span className={`hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
               isLiveMode
                 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                 : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
