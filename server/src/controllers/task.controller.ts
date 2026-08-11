@@ -5,6 +5,7 @@ import mssql from 'mssql';
 import getPool from '../config/db';
 import { AuthRequest } from '../middleware/auth';
 import { recalculateUserKPI } from '../services/kpi.service';
+import { createNotification } from './notification.controller';
 
 const createTaskSchema = z.object({
   title: z.string().min(1, 'Task title is required'),
@@ -73,6 +74,12 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     const currentPeriod = new Date().toISOString().substring(0, 7);
     await recalculateUserKPI(payload.assigned_to, currentPeriod);
 
+    // Notify assigned staff member about the new task
+    try {
+      await createNotification(pool, payload.assigned_to, 'assigned',
+        `You have been assigned a new task: "${payload.title}"`, taskId);
+    } catch { /* non-critical */ }
+
     return res.status(201).json({ message: 'Task created successfully', taskId });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
@@ -108,6 +115,21 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
     const currentPeriod = new Date().toISOString().substring(0, 7);
     const updatedKPI = await recalculateUserKPI(userId, currentPeriod);
 
+    // Notify the task creator (manager) that the task was completed
+    try {
+      const taskInfo = await pool.request()
+        .input('id', mssql.VarChar, id)
+        .query(`SELECT title, created_by FROM Tasks WHERE id = @id`);
+      if (taskInfo.recordset.length > 0) {
+        const { title, created_by } = taskInfo.recordset[0];
+        const staffName = req.user!.email;
+        if (created_by !== userId) {
+          await createNotification(pool, created_by, 'completed',
+            `Task "${title}" has been marked as completed.`, id);
+        }
+      }
+    } catch { /* non-critical */ }
+
     return res.json({ message: 'Task completed successfully', kpi: updatedKPI });
   } catch (err) {
     console.error('Complete Task Error:', err);
@@ -131,6 +153,24 @@ export const checkOverdue = async (req: AuthRequest, res: Response) => {
       `);
 
     const updated = result.rowsAffected[0];
+
+    // Notify each affected staff member their task is overdue
+    if (updated > 0) {
+      try {
+        const overdueUsers = await pool.request()
+          .input('now', mssql.DateTime2, now)
+          .query(`
+            SELECT DISTINCT assigned_to, title, id FROM Tasks
+            WHERE status = 'overdue'
+              AND completed_at IS NULL
+          `);
+        for (const task of overdueUsers.recordset) {
+          await createNotification(pool, task.assigned_to, 'overdue',
+            `Your task "${task.title}" is overdue. Please complete it as soon as possible.`, task.id);
+        }
+      } catch { /* non-critical */ }
+    }
+
     return res.json({ message: `${updated} task(s) marked as overdue`, updated });
   } catch (err) {
     console.error('Check Overdue Error:', err);

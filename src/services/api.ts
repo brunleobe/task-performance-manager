@@ -1,5 +1,5 @@
 // Frontend HTTP Client Service for TaskFlow Backend with Demo Mode Fallback
-import type { Task, KPILog, User, Department, AuthUser, LoginCredentials, CreateTaskPayload } from '../types';
+import type { Task, KPILog, User, Department, AuthUser, LoginCredentials, CreateTaskPayload, Notification } from '../types';
 import { DEMO_USERS, DEMO_DEPARTMENTS, DEMO_TASKS, DEMO_KPI_LOGS } from '../data/mockData';
 
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -245,5 +245,34 @@ export const api = {
       throw new Error(err.message || 'Failed to create department');
     }
     return res.json();
+  },
+
+  // Fetch all notifications for the logged-in user
+  getNotifications: async (): Promise<Notification[]> => {
+    if (!isRealJwt()) return [];
+    try {
+      const data = await liveGet('/notifications');
+      return data.notifications ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  // Mark a single notification as read
+  markNotificationRead: async (id: string): Promise<void> => {
+    if (!isRealJwt()) return;
+    await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+    }).catch(() => {});
+  },
+
+  // Mark all notifications as read
+  markAllNotificationsRead: async (): Promise<void> => {
+    if (!isRealJwt()) return;
+    await fetch(`${API_BASE_URL}/notifications/mark-all-read`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    }).catch(() => {});
   },
 };

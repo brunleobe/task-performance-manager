@@ -78,3 +78,14 @@ export interface CreateTaskPayload {
   weight_points: 1 | 2 | 3 | 4 | 5;
   due_date: string;
 }
+
+// In-app notification record
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'assigned' | 'completed' | 'overdue';
+  message: string;
+  task_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import type { User, Department, UserRole } from '../types';
 import { DEMO_USERS } from '../data/mockData';
+import NotificationBell from '../components/NotificationBell';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -127,13 +128,14 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-white">{user?.full_name}</p>
               <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 font-semibold border border-red-500/30">
                 System Admin
               </span>
             </div>
+            <NotificationBell />
             <button
               id="admin-logout-btn"
               onClick={handleLogout}

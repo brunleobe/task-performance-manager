@@ -8,6 +8,7 @@ import { api } from '../services/api';
 import { DEMO_TASKS, DEMO_KPI_LOGS } from '../data/mockData';
 import type { Task } from '../types';
 import { format } from 'date-fns';
+import NotificationBell from '../components/NotificationBell';
 
 const StaffDashboard: React.FC = () => {
   const { user, logout, token } = useAuth();
@@ -180,6 +181,7 @@ const StaffDashboard: React.FC = () => {
               <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
               {isLiveMode ? 'Live DB' : 'Demo Mode'}
             </span>
+            <NotificationBell />
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-white">{user?.full_name}</p>
               <p className="text-xs text-slate-500">{format(new Date(), 'MMMM yyyy')}</p>
