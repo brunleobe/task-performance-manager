@@ -6,6 +6,8 @@ import { format, isToday, isTomorrow, isPast, differenceInDays } from 'date-fns'
 interface TaskCardProps {
   task: Task;
   onComplete?: (taskId: string) => void;
+  onEdit?: (task: Task) => void;
+  onDelete?: (taskId: string) => void;
   showAssignee?: boolean;
 }
 
@@ -33,7 +35,7 @@ const getDueDateLabel = (dueDate: string) => {
   return { text: format(d, 'MMM d, yyyy'), className: 'text-slate-400' };
 };
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, showAssignee = false }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, onEdit, onDelete, showAssignee = false }) => {
   const sc = statusConfig[task.status];
   const due = getDueDateLabel(task.due_date);
   const isCompleted = task.status === 'completed';
@@ -82,9 +84,25 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, showAssignee = fa
           <p className={`font-medium text-sm leading-tight ${isCompleted ? 'line-through text-slate-500' : 'text-white'}`}>
             {task.title}
           </p>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${sc.badge}`}>
-            {sc.label}
-          </span>
+          <div className="flex items-center gap-2">
+            {(onEdit || onDelete) && (
+              <div className="hidden group-hover:flex items-center gap-1 mr-1">
+                {onEdit && (
+                  <button onClick={() => onEdit(task)} className="p-1 text-xs rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Edit Task">
+                    ✏️
+                  </button>
+                )}
+                {onDelete && (
+                  <button onClick={() => onDelete(task.id)} className="p-1 text-xs rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Delete Task">
+                    🗑️
+                  </button>
+                )}
+              </div>
+            )}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${sc.badge}`}>
+              {sc.label}
+            </span>
+          </div>
         </div>
 
         {task.description && (

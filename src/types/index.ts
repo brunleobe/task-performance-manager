@@ -56,6 +56,7 @@ export interface AuthUser {
   full_name: string;
   role: UserRole;
   department_id: string;
+  department_name?: string;
 }
 
 // Form credentials

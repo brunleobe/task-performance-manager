@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import type { User, Department, UserRole } from '../types';
 import { DEMO_USERS } from '../data/mockData';
 import NotificationBell from '../components/NotificationBell';
+import { ProfileModal } from '../components/ProfileModal';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -32,6 +33,7 @@ const AdminDashboard: React.FC = () => {
   const [deptFormError, setDeptFormError] = useState('');
   const [deptFormSuccess, setDeptFormSuccess] = useState('');
   const [isSubmittingDept, setIsSubmittingDept] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Fetch users and departments from backend API
   const loadAdminData = async () => {
@@ -129,12 +131,18 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-white">{user?.full_name}</p>
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="text-right hidden sm:block px-2.5 py-1 rounded-xl hover:bg-white/[0.06] transition-all border border-transparent hover:border-white/10"
+              title="Click to edit profile & password"
+            >
+              <p className="text-sm font-medium text-white flex items-center gap-1.5">
+                {user?.full_name} <span className="text-xs text-slate-400">⚙️</span>
+              </p>
               <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 font-semibold border border-red-500/30">
                 System Admin
               </span>
-            </div>
+            </button>
             <NotificationBell />
             <button
               id="admin-logout-btn"
@@ -389,6 +397,8 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
       </main>
+
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   );
 };

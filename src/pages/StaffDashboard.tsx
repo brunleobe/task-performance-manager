@@ -9,6 +9,7 @@ import { DEMO_TASKS, DEMO_KPI_LOGS } from '../data/mockData';
 import type { Task } from '../types';
 import { format } from 'date-fns';
 import NotificationBell from '../components/NotificationBell';
+import { ProfileModal } from '../components/ProfileModal';
 
 const StaffDashboard: React.FC = () => {
   const { user, logout, token } = useAuth();
@@ -24,6 +25,7 @@ const StaffDashboard: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isLiveMode, setIsLiveMode] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Determine if the stored token is a real JWT (3 dot-separated segments)
@@ -182,10 +184,16 @@ const StaffDashboard: React.FC = () => {
               {isLiveMode ? 'Live DB' : 'Demo Mode'}
             </span>
             <NotificationBell />
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-white">{user?.full_name}</p>
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="text-right hidden sm:block px-2.5 py-1 rounded-xl hover:bg-white/[0.06] transition-all border border-transparent hover:border-white/10"
+              title="Click to edit profile & password"
+            >
+              <p className="text-sm font-medium text-white flex items-center gap-1.5">
+                {user?.full_name} <span className="text-xs text-slate-400">⚙️</span>
+              </p>
               <p className="text-xs text-slate-500">{format(new Date(), 'MMMM yyyy')}</p>
-            </div>
+            </button>
             <button
               id="staff-logout-btn"
               onClick={handleLogout}
@@ -318,6 +326,8 @@ const StaffDashboard: React.FC = () => {
           </div>
         </div>
       </main>
+
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   );
 };

@@ -10,6 +10,7 @@ import { DEMO_TASKS, DEMO_KPI_LOGS, DEMO_USERS } from '../data/mockData';
 import type { Task, KPILog, User, CreateTaskPayload } from '../types';
 import { format, addDays } from 'date-fns';
 import NotificationBell from '../components/NotificationBell';
+import { ProfileModal } from '../components/ProfileModal';
 
 const ManagerDashboard: React.FC = () => {
   const { user, logout, token } = useAuth();
@@ -21,6 +22,8 @@ const ManagerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'create' | 'tasks'>('create');
   const [isLoading, setIsLoading] = useState(true);
   const [isLiveMode, setIsLiveMode] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const [form, setForm] = useState<CreateTaskPayload>({
     title: '',
@@ -81,8 +84,8 @@ const ManagerDashboard: React.FC = () => {
     loadDashboardData();
   }, [hasRealToken]);
 
-  // Handles task creation via backend API
-  const handleCreate = async (e: React.FormEvent) => {
+  // Handles task creation or update via backend API
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
@@ -95,21 +98,55 @@ const ManagerDashboard: React.FC = () => {
     const assignee = staffMembers.find(u => u.id === form.assigned_to);
 
     try {
-      await api.createTask(form);
-      setFormSuccess(`Task "${form.title.trim()}" assigned to ${assignee?.full_name}!`);
+      if (editingTaskId) {
+        await api.updateTask(editingTaskId, form);
+        setFormSuccess(`Task "${form.title.trim()}" updated successfully!`);
+      } else {
+        await api.createTask(form);
+        setFormSuccess(`Task "${form.title.trim()}" assigned to ${assignee?.full_name}!`);
+      }
       await loadDashboardData();
     } catch (err: any) {
-      setFormError(err.message || 'Failed to create task. Please try again.');
+      setFormError(err.message || `Failed to ${editingTaskId ? 'update' : 'create'} task. Please try again.`);
     } finally {
-      setForm({
-        title: '',
-        description: '',
-        assigned_to: form.assigned_to,
-        weight_points: 3,
-        due_date: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
-      });
+      handleCancelEdit();
       setIsSubmitting(false);
     }
+  };
+
+  const handleEdit = (task: Task) => {
+    setEditingTaskId(task.id);
+    setForm({
+      title: task.title,
+      description: task.description || '',
+      assigned_to: task.assigned_to || '',
+      weight_points: task.weight_points,
+      due_date: format(new Date(task.due_date), 'yyyy-MM-dd'),
+    });
+    setActiveTab('create');
+  };
+
+  const handleDelete = async (taskId: string) => {
+    if (!window.confirm('Are you sure you want to delete this task? This cannot be undone.')) return;
+    try {
+      await api.deleteTask(taskId);
+      await loadDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete task.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTaskId(null);
+    setForm({
+      title: '',
+      description: '',
+      assigned_to: form.assigned_to,
+      weight_points: 3,
+      due_date: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
+    });
+    setFormError('');
+    setFormSuccess('');
   };
 
   // Triggers CSV download of monthly team KPI report
@@ -190,10 +227,16 @@ const ManagerDashboard: React.FC = () => {
               {isLiveMode ? 'Live DB' : 'Demo Mode'}
             </span>
             <NotificationBell />
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-white">{user?.full_name}</p>
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="text-right hidden sm:block px-2.5 py-1 rounded-xl hover:bg-white/[0.06] transition-all border border-transparent hover:border-white/10"
+              title="Click to edit profile & password"
+            >
+              <p className="text-sm font-medium text-white flex items-center gap-1.5">
+                {user?.full_name} <span className="text-xs text-slate-400">⚙️</span>
+              </p>
               <p className="text-xs text-slate-500">{format(new Date(), 'MMMM yyyy')}</p>
-            </div>
+            </button>
             <button
               id="manager-logout-btn"
               onClick={handleLogout}
@@ -238,7 +281,7 @@ const ManagerDashboard: React.FC = () => {
               <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 animate-fade-in">
                 <h2 className="text-base font-semibold text-white mb-5 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-purple-400" />
-                  Assign New Task
+                  {editingTaskId ? 'Edit Task' : 'Assign New Task'}
                 </h2>
 
                 {formError && (
@@ -256,7 +299,7 @@ const ManagerDashboard: React.FC = () => {
                   </div>
                 )}
 
-                <form onSubmit={handleCreate} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Assignee</label>
                     <select
@@ -329,27 +372,40 @@ const ManagerDashboard: React.FC = () => {
                     />
                   </div>
 
-                  <button
-                    id="create-task-btn"
-                    type="submit"
-                    disabled={isSubmitting || isLoading}
-                    className="w-full py-3 rounded-xl font-semibold text-sm text-white
-                      bg-gradient-to-r from-purple-500 to-indigo-600
-                      hover:from-purple-400 hover:to-indigo-500
-                      shadow-lg shadow-purple-500/20
-                      transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
-                      disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Assigning...
-                      </span>
-                    ) : '✦ Create & Assign Task'}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      id="submit-task-btn"
+                      type="submit"
+                      disabled={isSubmitting || isLoading}
+                      className="flex-1 py-3 rounded-xl font-semibold text-sm text-white
+                        bg-gradient-to-r from-purple-500 to-indigo-600
+                        hover:from-purple-400 hover:to-indigo-500
+                        shadow-lg shadow-purple-500/20
+                        transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
+                        disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    >
+                      {isSubmitting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          {editingTaskId ? 'Updating...' : 'Assigning...'}
+                        </span>
+                      ) : editingTaskId ? '💾 Update Task' : '✦ Create & Assign Task'}
+                    </button>
+                    {editingTaskId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="px-5 py-3 rounded-xl font-semibold text-sm text-slate-300
+                          bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1]
+                          transition-all duration-200"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
             )}
@@ -369,7 +425,7 @@ const ManagerDashboard: React.FC = () => {
                 ) : (
                   allTasksSorted.map((task, i) => (
                     <div key={task.id} className="animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
-                      <TaskCard task={task} showAssignee />
+                      <TaskCard task={task} showAssignee onEdit={handleEdit} onDelete={handleDelete} />
                     </div>
                   ))
                 )}
@@ -440,6 +496,8 @@ const ManagerDashboard: React.FC = () => {
           </div>
         </div>
       </main>
+
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   );
 };

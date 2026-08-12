@@ -177,3 +177,92 @@ export const checkOverdue = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ message: 'Failed to check overdue tasks' });
   }
 };
+
+// PUT /api/tasks/:id
+export const editTask = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const payload = createTaskSchema.parse(req.body);
+    const pool = await getPool();
+    const dueDateISO = new Date(payload.due_date).toISOString();
+
+    // Fetch existing task to handle KPI recalculations if assignee changes
+    const currentTaskReq = await pool.request()
+      .input('id', mssql.VarChar, id)
+      .query(`SELECT assigned_to FROM Tasks WHERE id = @id`);
+    
+    if (currentTaskReq.recordset.length === 0) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    const oldAssignee = currentTaskReq.recordset[0].assigned_to;
+
+    await pool.request()
+      .input('id', mssql.VarChar, id)
+      .input('title', mssql.NVarChar, payload.title)
+      .input('description', mssql.NVarChar, payload.description)
+      .input('assigned_to', mssql.VarChar, payload.assigned_to)
+      .input('weight_points', mssql.Int, payload.weight_points)
+      .input('due_date', mssql.DateTime2, dueDateISO)
+      .query(`
+        UPDATE Tasks
+        SET title = @title,
+            description = @description,
+            assigned_to = @assigned_to,
+            weight_points = @weight_points,
+            due_date = @due_date
+        WHERE id = @id
+      `);
+
+    const currentPeriod = new Date().toISOString().substring(0, 7);
+    
+    // Recalculate KPIs
+    await recalculateUserKPI(payload.assigned_to, currentPeriod);
+    if (oldAssignee !== payload.assigned_to) {
+      await recalculateUserKPI(oldAssignee, currentPeriod);
+    }
+
+    return res.json({ message: 'Task updated successfully' });
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ message: err.errors[0].message });
+    }
+    console.error('Edit Task Error:', err);
+    return res.status(500).json({ message: 'Failed to update task' });
+  }
+};
+
+// DELETE /api/tasks/:id
+export const deleteTask = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const pool = await getPool();
+
+    // Fetch existing task to get assignee for KPI recalculation
+    const currentTaskReq = await pool.request()
+      .input('id', mssql.VarChar, id)
+      .query(`SELECT assigned_to FROM Tasks WHERE id = @id`);
+    
+    if (currentTaskReq.recordset.length === 0) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    const currentTask = currentTaskReq.recordset[0];
+
+    // Clean up related notifications first
+    await pool.request()
+      .input('id', mssql.VarChar, id)
+      .query(`DELETE FROM Notifications WHERE related_task_id = @id`);
+      
+    // Delete the task
+    await pool.request()
+      .input('id', mssql.VarChar, id)
+      .query(`DELETE FROM Tasks WHERE id = @id`);
+
+    const currentPeriod = new Date().toISOString().substring(0, 7);
+    await recalculateUserKPI(currentTask.assigned_to, currentPeriod);
+
+    return res.json({ message: 'Task deleted successfully' });
+  } catch (err) {
+    console.error('Delete Task Error:', err);
+    return res.status(500).json({ message: 'Failed to delete task' });
+  }
+};

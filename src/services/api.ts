@@ -92,6 +92,53 @@ export const api = {
     return res.json();
   },
 
+  // Manager: update an existing task
+  updateTask: async (id: string, payload: CreateTaskPayload): Promise<void> => {
+    if (!isRealJwt()) {
+      const idx = DEMO_TASKS.findIndex(t => t.id === id);
+      if (idx !== -1) {
+        DEMO_TASKS[idx] = {
+          ...DEMO_TASKS[idx],
+          title: payload.title,
+          description: payload.description,
+          assigned_to: payload.assigned_to,
+          assigned_to_name: DEMO_USERS.find(u => u.id === payload.assigned_to)?.full_name || 'Staff User',
+          weight_points: payload.weight_points,
+          due_date: payload.due_date,
+        };
+      }
+      return;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to update task');
+    }
+  },
+
+  // Manager: delete a task
+  deleteTask: async (id: string): Promise<void> => {
+    if (!isRealJwt()) {
+      const idx = DEMO_TASKS.findIndex(t => t.id === id);
+      if (idx !== -1) DEMO_TASKS.splice(idx, 1);
+      return;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to delete task');
+    }
+  },
+
   // Staff: mark task completed
   completeTask: async (taskId: string): Promise<void> => {
     if (!isRealJwt()) {
@@ -280,5 +327,38 @@ export const api = {
       method: 'POST',
       headers: getAuthHeaders(),
     }).catch(() => {});
+  },
+
+  // Update user profile full_name
+  updateProfile: async (full_name: string): Promise<{ full_name: string }> => {
+    if (!isRealJwt()) {
+      return { full_name };
+    }
+    const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ full_name }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to update profile');
+    }
+    return res.json();
+  },
+
+  // Change user password
+  changePassword: async (current_password: string, new_password: string): Promise<void> => {
+    if (!isRealJwt()) {
+      return;
+    }
+    const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ current_password, new_password }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to change password');
+    }
   },
 };
