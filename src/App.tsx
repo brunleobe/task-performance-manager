@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/Login';
 import StaffDashboard from './pages/StaffDashboard';
 import ManagerDashboard from './pages/ManagerDashboard';
@@ -17,7 +18,7 @@ const ProtectedRoute: React.FC<{
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#080c18] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 dark:bg-[#0b0f19] light:bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
           <p className="text-slate-500 text-sm">Loading...</p>
@@ -86,9 +87,11 @@ const AppRoutes: React.FC = () => {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

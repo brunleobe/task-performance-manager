@@ -361,4 +361,14 @@ export const api = {
       throw new Error(err.message || 'Failed to change password');
     }
   },
+
+  // Helper aliases
+  getMyTasks: async (): Promise<Task[]> => api.getTasks(),
+  getTeamKpi: async (): Promise<KPILog[]> => api.getLeaderboard(),
+  getStaffMembers: async (): Promise<User[]> => {
+    const users = await api.getAdminUsers();
+    return users.filter(u => u.role === 'staff');
+  },
+  exportReportCSV: async (): Promise<void> => api.exportKpiReportCsv(),
 };
+

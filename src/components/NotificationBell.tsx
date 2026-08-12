@@ -11,9 +11,9 @@ const typeIcon: Record<string, string> = {
 };
 
 const typeColor: Record<string, string> = {
-  assigned: 'text-cyan-400',
-  completed: 'text-emerald-400',
-  overdue: 'text-red-400',
+  assigned: 'text-cyan-600 dark:text-cyan-400',
+  completed: 'text-emerald-600 dark:text-emerald-400',
+  overdue: 'text-red-600 dark:text-red-400',
 };
 
 const NotificationBell: React.FC = () => {
@@ -34,12 +34,10 @@ const NotificationBell: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-    // Poll every 30 seconds for new notifications
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -62,10 +60,9 @@ const NotificationBell: React.FC = () => {
 
   return (
     <div ref={ref} className="relative">
-      {/* Bell button */}
       <button
         onClick={() => { setOpen(o => !o); if (!open) fetchNotifications(); }}
-        className="relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all"
+        className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.06] transition-all"
         title="Notifications"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,15 +76,13 @@ const NotificationBell: React.FC = () => {
         )}
       </button>
 
-      {/* Dropdown panel */}
       {open && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#0d1626] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/50 z-50 overflow-hidden animate-fade-in">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            <h3 className="text-sm font-semibold text-white">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border-slate-200 dark:bg-[#0d1626] dark:border-white/[0.08] border rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/[0.06]">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
               Notifications
               {unreadCount > 0 && (
-                <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-400 rounded-full">
+                <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-500 rounded-full">
                   {unreadCount} new
                 </span>
               )}
@@ -95,19 +90,18 @@ const NotificationBell: React.FC = () => {
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs text-slate-400 hover:text-cyan-400 transition-colors"
+                className="text-xs text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          {/* Notification list */}
-          <div className="max-h-80 overflow-y-auto divide-y divide-white/[0.04]">
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.04]">
             {notifications.length === 0 ? (
               <div className="text-center py-10">
                 <p className="text-2xl mb-1">🔔</p>
-                <p className="text-sm text-slate-500">No notifications yet</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">No notifications yet</p>
               </div>
             ) : (
               notifications.map(n => (
@@ -116,14 +110,13 @@ const NotificationBell: React.FC = () => {
                   onClick={() => !n.is_read && handleMarkRead(n.id)}
                   className={`flex items-start gap-3 px-4 py-3 transition-all cursor-pointer ${
                     n.is_read
-                      ? 'opacity-50 hover:opacity-70'
-                      : 'hover:bg-white/[0.04]'
+                      ? 'opacity-60 hover:bg-slate-50 dark:hover:opacity-80'
+                      : 'bg-cyan-50/50 hover:bg-cyan-50 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]'
                   }`}
                 >
-                  {/* Unread dot */}
                   <div className="mt-1 flex-shrink-0">
                     {!n.is_read && (
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 block" />
+                      <span className="w-2 h-2 rounded-full bg-cyan-500 block" />
                     )}
                     {n.is_read && (
                       <span className="w-2 h-2 block" />
@@ -133,11 +126,11 @@ const NotificationBell: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2">
                       <span className="text-sm">{typeIcon[n.type]}</span>
-                      <p className={`text-xs leading-relaxed ${n.is_read ? 'text-slate-500' : 'text-slate-300'}`}>
+                      <p className={`text-xs leading-relaxed ${n.is_read ? 'text-slate-500 dark:text-slate-400' : 'text-slate-800 dark:text-slate-200 font-medium'}`}>
                         {n.message}
                       </p>
                     </div>
-                    <p className={`text-[10px] mt-1 ${typeColor[n.type]}`}>
+                    <p className={`text-[10px] mt-1 font-medium ${typeColor[n.type]}`}>
                       {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                     </p>
                   </div>
@@ -146,10 +139,9 @@ const NotificationBell: React.FC = () => {
             )}
           </div>
 
-          {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t border-white/[0.06]">
-              <p className="text-[10px] text-slate-600 text-center">
+            <div className="px-4 py-2 border-t border-slate-100 dark:border-white/[0.06]">
+              <p className="text-[10px] text-slate-500 text-center">
                 Showing last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
               </p>
             </div>

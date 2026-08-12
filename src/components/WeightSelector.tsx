@@ -28,7 +28,7 @@ const WeightSelector: React.FC<WeightSelectorProps> = ({ value, onChange }) => {
               hover:scale-105 active:scale-95
               ${value === w
                 ? weightLabels[w].color
-                : 'bg-white/[0.03] border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.03] dark:border-white/10 dark:text-slate-400 dark:hover:border-white/20 dark:hover:text-white'
               }
             `}
           >
@@ -39,7 +39,7 @@ const WeightSelector: React.FC<WeightSelectorProps> = ({ value, onChange }) => {
 
       <p className="text-xs text-slate-500 text-center">
         Weight:{' '}
-        <span className="text-slate-300 font-medium">{weightLabels[value].desc}</span>
+        <span className="text-slate-700 dark:text-slate-300 font-semibold">{weightLabels[value].desc}</span>
         {' '}({value} point{value > 1 ? 's' : ''})
       </p>
     </div>

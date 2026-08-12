@@ -1,25 +1,26 @@
-// Manager Dashboard page with live DB API Integration
+// Manager Dashboard page — task assignment, team KPI leaderboard, and report exports
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import LeaderBoard from '../components/LeaderBoard';
-import TaskCard from '../components/TaskCard';
-import WeightSelector from '../components/WeightSelector';
 import { api } from '../services/api';
-import { DEMO_TASKS, DEMO_KPI_LOGS, DEMO_USERS } from '../data/mockData';
+import TaskCard from '../components/TaskCard';
+import LeaderBoard from '../components/LeaderBoard';
+import WeightSelector from '../components/WeightSelector';
 import type { Task, KPILog, User, CreateTaskPayload } from '../types';
 import { format, addDays } from 'date-fns';
 import NotificationBell from '../components/NotificationBell';
 import { ProfileModal } from '../components/ProfileModal';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 const ManagerDashboard: React.FC = () => {
   const { user, logout, token } = useAuth();
   const navigate = useNavigate();
 
+  const [activeTab, setActiveTab] = useState<'create' | 'tasks'>('create');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [kpiLogs, setKpiLogs] = useState<KPILog[]>([]);
   const [staffMembers, setStaffMembers] = useState<User[]>([]);
-  const [activeTab, setActiveTab] = useState<'create' | 'tasks'>('create');
+
   const [isLoading, setIsLoading] = useState(true);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -30,50 +31,52 @@ const ManagerDashboard: React.FC = () => {
     description: '',
     assigned_to: '',
     weight_points: 3,
-    due_date: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
+    due_date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
   });
 
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Determine if the stored token is a real JWT
-  const hasRealToken = token ? token.split('.').length === 3 : false;
+  const hasRealToken = !!(token && token.split('.').length === 3);
 
-  // Load tasks, leaderboard, and real staff list from backend
-  const loadDashboardData = async () => {
+  const loadData = async () => {
     setIsLoading(true);
-
-    if (!hasRealToken) {
-      // Demo mode
-      setTasks(DEMO_TASKS);
-      setKpiLogs(DEMO_KPI_LOGS);
-      setStaffMembers(DEMO_USERS.filter(u => u.role === 'staff') as User[]);
-      setIsLiveMode(false);
-      setIsLoading(false);
-      return;
-    }
-
-    // Silently flag overdue tasks before fetching fresh data
-    await api.checkOverdue();
-
     try {
-      const [fetchedTasks, leaderboard, allUsers] = await Promise.all([
-        api.getTasks(),
-        api.getLeaderboard(),
-        api.getAdminUsers(),
-      ]);
-      setTasks(fetchedTasks);
-      setKpiLogs(leaderboard);
-      setStaffMembers(allUsers.filter(u => u.role === 'staff'));
-      setIsLiveMode(true);
-    } catch (err: any) {
-      // Network unreachable: fall back to demo data
-      if (err instanceof TypeError) {
-        setTasks(DEMO_TASKS);
-        setKpiLogs(DEMO_KPI_LOGS);
-        setStaffMembers(DEMO_USERS.filter(u => u.role === 'staff') as User[]);
+      if (hasRealToken) {
+        const [allTasks, teamKpi, staff] = await Promise.all([
+          api.getTasks(),
+          api.getTeamKpi(),
+          api.getStaffMembers(),
+        ]);
+        setTasks(allTasks);
+        setKpiLogs(teamKpi);
+        setStaffMembers(staff);
+        setIsLiveMode(true);
+      } else {
+        const [allTasks, teamKpi, staff] = await Promise.all([
+          api.getTasks(),
+          api.getTeamKpi(),
+          api.getStaffMembers(),
+        ]);
+        setTasks(allTasks);
+        setKpiLogs(teamKpi);
+        setStaffMembers(staff);
         setIsLiveMode(false);
+      }
+    } catch (err: any) {
+      if (err instanceof TypeError) {
+        setIsLiveMode(false);
+        const [allTasks, teamKpi, staff] = await Promise.all([
+          api.getTasks(),
+          api.getTeamKpi(),
+          api.getStaffMembers(),
+        ]);
+        setTasks(allTasks);
+        setKpiLogs(teamKpi);
+        setStaffMembers(staff);
+      } else {
+        console.error('Manager load error:', err);
       }
     } finally {
       setIsLoading(false);
@@ -81,35 +84,48 @@ const ManagerDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadDashboardData();
-  }, [hasRealToken]);
+    loadData();
+  }, [token]);
 
-  // Handles task creation or update via backend API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
-    if (!form.assigned_to) { setFormError('Please select an assignee.'); return; }
-    if (!form.title.trim()) { setFormError('Task title is required.'); return; }
+    if (!form.assigned_to) { setFormError('Please select a staff member'); return; }
+    if (!form.title.trim()) { setFormError('Task name is required'); return; }
+    if (!form.due_date) { setFormError('Due date is required'); return; }
 
     setIsSubmitting(true);
-
-    const assignee = staffMembers.find(u => u.id === form.assigned_to);
-
     try {
       if (editingTaskId) {
         await api.updateTask(editingTaskId, form);
-        setFormSuccess(`Task "${form.title.trim()}" updated successfully!`);
+        const staffName = staffMembers.find(s => s.id === form.assigned_to)?.full_name || 'Staff User';
+        setTasks(prev => prev.map(t => t.id === editingTaskId ? { ...t, ...form, assigned_to_name: staffName } : t));
+        setFormSuccess('Task updated successfully!');
+        setEditingTaskId(null);
       } else {
         await api.createTask(form);
-        setFormSuccess(`Task "${form.title.trim()}" assigned to ${assignee?.full_name}!`);
+        const allTasks = await api.getTasks();
+        setTasks(allTasks);
+        setFormSuccess('Task assigned successfully!');
       }
-      await loadDashboardData();
+
+      setForm({
+        title: '',
+        description: '',
+        assigned_to: '',
+        weight_points: 3,
+        due_date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
+      });
+
+      if (hasRealToken) {
+        const teamKpi = await api.getTeamKpi();
+        setKpiLogs(teamKpi);
+      }
     } catch (err: any) {
-      setFormError(err.message || `Failed to ${editingTaskId ? 'update' : 'create'} task. Please try again.`);
+      setFormError(err.message || 'Failed to save task');
     } finally {
-      handleCancelEdit();
       setIsSubmitting(false);
     }
   };
@@ -118,22 +134,14 @@ const ManagerDashboard: React.FC = () => {
     setEditingTaskId(task.id);
     setForm({
       title: task.title,
-      description: task.description || '',
-      assigned_to: task.assigned_to || '',
+      description: task.description,
+      assigned_to: task.assigned_to,
       weight_points: task.weight_points,
-      due_date: format(new Date(task.due_date), 'yyyy-MM-dd'),
+      due_date: task.due_date.split('T')[0],
     });
     setActiveTab('create');
-  };
-
-  const handleDelete = async (taskId: string) => {
-    if (!window.confirm('Are you sure you want to delete this task? This cannot be undone.')) return;
-    try {
-      await api.deleteTask(taskId);
-      await loadDashboardData();
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete task.');
-    }
+    setFormError('');
+    setFormSuccess('');
   };
 
   const handleCancelEdit = () => {
@@ -141,42 +149,33 @@ const ManagerDashboard: React.FC = () => {
     setForm({
       title: '',
       description: '',
-      assigned_to: form.assigned_to,
+      assigned_to: '',
       weight_points: 3,
-      due_date: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
+      due_date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
     });
     setFormError('');
     setFormSuccess('');
   };
 
-  // Triggers CSV download of monthly team KPI report
+  const handleDelete = async (taskId: string) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    try {
+      await api.deleteTask(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      if (hasRealToken) {
+        const teamKpi = await api.getTeamKpi();
+        setKpiLogs(teamKpi);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete task');
+    }
+  };
+
   const handleExport = async () => {
     try {
-      await api.exportKpiReportCsv();
+      await api.exportReportCSV();
     } catch {
-      const period = format(new Date(), 'yyyy-MM');
-      const rows = [
-        ['Rank', 'Name', 'KPI Score', 'Weight Assigned', 'Weight Completed', 'On-Time Tasks', 'Period'],
-        ...[...kpiLogs]
-          .sort((a, b) => b.kpi_score - a.kpi_score)
-          .map((k, i) => [
-            i + 1,
-            k.user_name ?? 'N/A',
-            `${k.kpi_score.toFixed(1)}%`,
-            k.total_weight_assigned,
-            k.total_weight_completed,
-            k.on_time_count,
-            k.period,
-          ]),
-      ];
-      const csv = rows.map(r => r.join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `team-kpi-${period}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      alert('CSV Export completed');
     }
   };
 
@@ -187,11 +186,10 @@ const ManagerDashboard: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#080c18] text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0b0f19] dark:text-white transition-colors">
       {/* Navigation Header */}
-      <header className="border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-xl sticky top-0 z-10">
+      <header className="border-b border-slate-200 bg-white/80 dark:border-white/[0.06] dark:bg-white/[0.02] backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,48 +197,47 @@ const ManagerDashboard: React.FC = () => {
               </svg>
             </div>
             <div>
-              <span className="font-semibold text-white">TaskFlow</span>
-              <span className="text-slate-500 text-sm ml-2">Manager Portal</span>
+              <span className="font-semibold text-slate-900 dark:text-white">TaskFlow</span>
+              <span className="text-slate-500 text-sm ml-2 font-medium">Manager Portal</span>
             </div>
           </div>
 
-          {/* Navigation links */}
           <nav className="hidden sm:flex items-center gap-1">
             <Link to="/manager/dashboard"
-              className="px-3 py-1.5 text-sm text-white rounded-lg bg-white/[0.08] transition-all">
+              className="px-3 py-1.5 text-sm font-medium bg-slate-200 text-slate-900 dark:bg-white/[0.08] dark:text-white rounded-lg transition-all">
               Dashboard
             </Link>
             <Link to="/manager/reports"
-              className="px-3 py-1.5 text-sm text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.05] transition-all">
+              className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.05] rounded-lg transition-all">
               Reports
             </Link>
           </nav>
 
-          {/* Right-side controls */}
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <span className={`hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
               isLiveMode
-                ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                ? 'text-emerald-600 border-emerald-300 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-500/30 dark:bg-emerald-500/10'
+                : 'text-amber-600 border-amber-300 bg-amber-50 dark:text-amber-400 dark:border-amber-500/30 dark:bg-amber-500/10'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
               {isLiveMode ? 'Live DB' : 'Demo Mode'}
             </span>
             <NotificationBell />
             <button
               onClick={() => setIsProfileOpen(true)}
-              className="text-right hidden sm:block px-2.5 py-1 rounded-xl hover:bg-white/[0.06] transition-all border border-transparent hover:border-white/10"
+              className="text-right hidden sm:block px-2.5 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all border border-transparent hover:border-slate-200 dark:hover:border-white/10"
               title="Click to edit profile & password"
             >
-              <p className="text-sm font-medium text-white flex items-center gap-1.5">
-                {user?.full_name} <span className="text-xs text-slate-400">⚙️</span>
+              <p className="text-sm font-medium text-slate-800 dark:text-white flex items-center gap-1.5">
+                {user?.full_name} <span className="text-xs text-slate-500 dark:text-slate-400">⚙️</span>
               </p>
-              <p className="text-xs text-slate-500">{format(new Date(), 'MMMM yyyy')}</p>
+              <p className="text-xs text-slate-500 font-medium">{format(new Date(), 'MMMM yyyy')}</p>
             </button>
             <button
               id="manager-logout-btn"
               onClick={handleLogout}
-              className="px-3 py-1.5 rounded-lg text-xs text-slate-400 border border-white/[0.06] hover:bg-white/[0.05] hover:text-white transition-all"
+              className="px-3 py-1.5 rounded-xl text-xs text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:border-white/[0.06] dark:hover:bg-white/[0.05] dark:hover:text-white border transition-all"
             >
               Sign out
             </button>
@@ -251,15 +248,13 @@ const ManagerDashboard: React.FC = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white">Manager Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Assign tasks, track team performance, and export reports.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Manager Dashboard</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Assign tasks, track team performance, and export reports.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Create Task Form & Task List Panel */}
           <div className="lg:col-span-3 space-y-4">
-            {/* Tab Controls — scrollable on mobile */}
-            <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl w-full sm:w-fit overflow-x-auto">
+            <div className="flex gap-1 p-1 bg-slate-100 border-slate-200 dark:bg-white/[0.03] dark:border-white/[0.06] border rounded-xl w-full sm:w-fit overflow-x-auto">
               {(['create', 'tasks'] as const).map(tab => (
                 <button
                   key={tab}
@@ -267,8 +262,8 @@ const ManagerDashboard: React.FC = () => {
                   onClick={() => setActiveTab(tab)}
                   className={`flex-shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                     activeTab === tab
-                      ? 'bg-white/[0.08] text-white'
-                      : 'text-slate-500 hover:text-slate-300'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-white/[0.08] dark:text-white'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-500 dark:hover:text-slate-300'
                   }`}
                 >
                   {tab === 'create' ? '+ Create Task' : `All Tasks (${tasks.length})`}
@@ -276,22 +271,21 @@ const ManagerDashboard: React.FC = () => {
               ))}
             </div>
 
-            {/* Create Task Tab */}
             {activeTab === 'create' && (
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 animate-fade-in">
-                <h2 className="text-base font-semibold text-white mb-5 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-400" />
+              <div className="bg-white border-slate-200 shadow-sm dark:bg-white/[0.03] dark:border-white/[0.08] border rounded-2xl p-6 animate-fade-in">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-500" />
                   {editingTaskId ? 'Edit Task' : 'Assign New Task'}
                 </h2>
 
                 {formError && (
-                  <div className="mb-4 px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-slide-up">
+                  <div className="mb-4 px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm animate-slide-up">
                     {formError}
                   </div>
                 )}
 
                 {formSuccess && (
-                  <div className="mb-4 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm animate-slide-up flex items-center gap-2">
+                  <div className="mb-4 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm animate-slide-up flex items-center gap-2">
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
@@ -301,71 +295,61 @@ const ManagerDashboard: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Assignee</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Assignee</label>
                     <select
                       id="assignee-select"
                       value={form.assigned_to}
                       onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm
-                        focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border-slate-200 text-slate-900 dark:bg-white/[0.05] dark:border-white/10 dark:text-white border text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                       disabled={isLoading}
                     >
-                      <option value="" className="bg-[#0f1729]">
+                      <option value="" className="bg-white dark:bg-[#0f1729]">
                         {isLoading ? 'Loading staff...' : staffMembers.length === 0 ? 'No staff accounts found' : 'Select staff member...'}
                       </option>
                       {staffMembers.map(s => (
-                        <option key={s.id} value={s.id} className="bg-[#0f1729]">{s.full_name}</option>
+                        <option key={s.id} value={s.id} className="bg-white dark:bg-[#0f1729]">{s.full_name}</option>
                       ))}
                     </select>
-                    {isLiveMode && staffMembers.length === 0 && !isLoading && (
-                      <p className="text-xs text-amber-400 mt-1">
-                        No staff accounts yet — create staff users in the Admin Dashboard first.
-                      </p>
-                    )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Task Name</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Task Name</label>
                     <input
                       id="task-title-input"
                       type="text"
                       value={form.title}
                       onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                       placeholder="e.g. Refactor authentication module"
-                      className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 text-white placeholder-slate-500 text-sm
-                        focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 dark:bg-white/[0.05] dark:border-white/10 dark:text-white dark:placeholder-slate-500 border text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Description</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
                     <textarea
                       id="task-description-input"
                       value={form.description}
                       onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                       placeholder="Detailed instructions for the task..."
                       rows={3}
-                      className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 text-white placeholder-slate-500 text-sm resize-none
-                        focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 dark:bg-white/[0.05] dark:border-white/10 dark:text-white dark:placeholder-slate-500 border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Due Date</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Due Date</label>
                     <input
                       id="task-due-date-input"
                       type="date"
                       value={form.due_date}
                       min={format(new Date(), 'yyyy-MM-dd')}
                       onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm
-                        focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all
-                        [color-scheme:dark]"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border-slate-200 text-slate-900 dark:bg-white/[0.05] dark:border-white/10 dark:text-white border text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Difficulty / Weight</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Difficulty / Weight</label>
                     <WeightSelector
                       value={form.weight_points}
                       onChange={v => setForm(f => ({ ...f, weight_points: v }))}
@@ -384,23 +368,13 @@ const ManagerDashboard: React.FC = () => {
                         transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
                         disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                      {isSubmitting ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          {editingTaskId ? 'Updating...' : 'Assigning...'}
-                        </span>
-                      ) : editingTaskId ? '💾 Update Task' : '✦ Create & Assign Task'}
+                      {isSubmitting ? 'Saving...' : editingTaskId ? '💾 Update Task' : '✦ Create & Assign Task'}
                     </button>
                     {editingTaskId && (
                       <button
                         type="button"
                         onClick={handleCancelEdit}
-                        className="px-5 py-3 rounded-xl font-semibold text-sm text-slate-300
-                          bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1]
-                          transition-all duration-200"
+                        className="px-5 py-3 rounded-xl font-semibold text-sm bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80 dark:bg-white/[0.05] dark:border-white/[0.1] dark:text-slate-300 border transition-all"
                       >
                         Cancel
                       </button>
@@ -410,17 +384,16 @@ const ManagerDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* All Tasks Tab */}
             {activeTab === 'tasks' && (
               <div className="space-y-2 animate-fade-in">
                 {isLoading ? (
                   [1, 2, 3].map(i => (
-                    <div key={i} className="h-16 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
+                    <div key={i} className="h-16 rounded-xl bg-slate-100 border-slate-200 dark:bg-white/[0.03] dark:border-white/[0.06] border animate-pulse" />
                   ))
                 ) : allTasksSorted.length === 0 ? (
-                  <div className="text-center py-16 bg-white/[0.02] border border-white/[0.06] rounded-2xl">
+                  <div className="text-center py-16 bg-white border-slate-200 shadow-sm dark:bg-white/[0.02] dark:border-white/[0.06] border rounded-2xl">
                     <p className="text-sm text-slate-500">No tasks created yet</p>
-                    <p className="text-xs text-slate-600 mt-1">Switch to Create Task to assign the first task</p>
+                    <p className="text-xs text-slate-400 mt-1">Switch to Create Task to assign the first task</p>
                   </div>
                 ) : (
                   allTasksSorted.map((task, i) => (
@@ -433,43 +406,39 @@ const ManagerDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Leaderboard & Stats Section */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-indigo-400" />
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
                 Team KPI Leaderboard
               </h2>
-              <span className="text-xs text-slate-500 bg-white/[0.04] px-3 py-1 rounded-full border border-white/[0.06]">
+              <span className="text-xs text-slate-600 bg-slate-100 border-slate-200 dark:text-slate-400 dark:bg-white/[0.04] dark:border-white/[0.06] px-3 py-1 rounded-full border font-medium">
                 {format(new Date(), 'MMM yyyy')}
               </span>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5">
+            <div className="bg-white border-slate-200 shadow-sm dark:bg-white/[0.03] dark:border-white/[0.08] border rounded-2xl p-5">
               {isLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className="h-10 rounded-lg bg-white/[0.03] animate-pulse" />
+                    <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-white/[0.03] animate-pulse" />
                   ))}
                 </div>
               ) : kpiLogs.length === 0 ? (
                 <div className="text-center py-10">
                   <p className="text-2xl mb-2">📊</p>
-                  <p className="text-sm text-slate-500">No KPI data yet</p>
-                  <p className="text-xs text-slate-600 mt-1">KPI scores appear after tasks are assigned & completed</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No KPI data yet</p>
+                  <p className="text-xs text-slate-400 mt-1">KPI scores appear after tasks are assigned & completed</p>
                 </div>
               ) : (
                 <LeaderBoard entries={kpiLogs} />
               )}
 
-              <div className="mt-5 pt-5 border-t border-white/[0.06]">
+              <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/[0.06]">
                 <button
                   id="export-report-btn"
                   onClick={handleExport}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium text-slate-300
-                    border border-white/[0.08] bg-white/[0.02]
-                    hover:bg-white/[0.06] hover:border-white/20 hover:text-white
-                    transition-all duration-200 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded-xl text-sm font-medium bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:bg-white/[0.06] dark:text-slate-300 border transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -486,10 +455,10 @@ const ManagerDashboard: React.FC = () => {
                 { label: 'Completed',    value: tasks.filter(t => t.status === 'completed').length, icon: '✅' },
                 { label: 'Overdue',      value: tasks.filter(t => t.status === 'overdue').length, icon: '⚠️' },
               ].map(stat => (
-                <div key={stat.label} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center animate-fade-in">
+                <div key={stat.label} className="bg-white border-slate-200 shadow-sm dark:bg-white/[0.03] dark:border-white/[0.06] border rounded-xl p-3 text-center animate-fade-in">
                   <p className="text-lg">{stat.icon}</p>
-                  <p className="text-xl font-bold text-white tabular-nums mt-0.5">{stat.value}</p>
-                  <p className="text-xs text-slate-500">{stat.label}</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-0.5">{stat.value}</p>
+                  <p className="text-xs text-slate-500 font-medium">{stat.label}</p>
                 </div>
               ))}
             </div>

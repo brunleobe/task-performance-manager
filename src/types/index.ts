@@ -90,3 +90,18 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
 }
+
+export interface TrendsData {
+  periods: string[];
+  records: Array<{
+    user_id: string;
+    user_name: string;
+    period: string;
+    kpi_score: number;
+    total_weight_assigned: number;
+    total_weight_completed: number;
+    on_time_count: number;
+  }>;
+  monthlyTotals: Record<string, { assigned: number; completed: number }>;
+}
+
