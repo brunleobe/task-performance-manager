@@ -1,4 +1,4 @@
-// NotificationBell component — shows unread count badge and dropdown list
+// NotificationBell component
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import type { Notification } from '../types';
@@ -11,9 +11,9 @@ const typeIcon: Record<string, string> = {
 };
 
 const typeColor: Record<string, string> = {
-  assigned: 'text-cyan-600 dark:text-cyan-400',
+  assigned: 'text-sky-600 dark:text-sky-400',
   completed: 'text-emerald-600 dark:text-emerald-400',
-  overdue: 'text-red-600 dark:text-red-400',
+  overdue: 'text-rose-600 dark:text-rose-400',
 };
 
 const NotificationBell: React.FC = () => {
@@ -28,7 +28,7 @@ const NotificationBell: React.FC = () => {
       const data = await api.getNotifications();
       setNotifications(data);
     } catch {
-      // Silently fail — non-critical feature
+      // Silently fail
     }
   };
 
@@ -62,7 +62,7 @@ const NotificationBell: React.FC = () => {
     <div ref={ref} className="relative">
       <button
         onClick={() => { setOpen(o => !o); if (!open) fetchNotifications(); }}
-        className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.06] transition-all"
+        className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-blue-900/40 transition-all"
         title="Notifications"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,19 +70,19 @@ const NotificationBell: React.FC = () => {
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white dark:ring-[#0b1329]">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border-slate-200 dark:bg-[#0d1626] dark:border-white/[0.08] border rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/[0.06]">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border-slate-200 shadow-2xl shadow-blue-950/20 dark:bg-[#121c38] dark:border-blue-900/50 border rounded-2xl z-50 overflow-hidden animate-fade-in">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-blue-900/30 bg-slate-50/50 dark:bg-blue-950/30">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Notifications
               {unreadCount > 0 && (
-                <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-500 rounded-full">
+                <span className="ml-2 px-2 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-600 dark:text-sky-300 rounded-full">
                   {unreadCount} new
                 </span>
               )}
@@ -90,18 +90,18 @@ const NotificationBell: React.FC = () => {
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.04]">
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-blue-900/30">
             {notifications.length === 0 ? (
               <div className="text-center py-10">
                 <p className="text-2xl mb-1">🔔</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">No notifications yet</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">No notifications yet</p>
               </div>
             ) : (
               notifications.map(n => (
@@ -111,12 +111,12 @@ const NotificationBell: React.FC = () => {
                   className={`flex items-start gap-3 px-4 py-3 transition-all cursor-pointer ${
                     n.is_read
                       ? 'opacity-60 hover:bg-slate-50 dark:hover:opacity-80'
-                      : 'bg-cyan-50/50 hover:bg-cyan-50 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]'
+                      : 'bg-blue-50/60 hover:bg-blue-50 dark:bg-blue-900/30 dark:hover:bg-blue-900/50'
                   }`}
                 >
                   <div className="mt-1 flex-shrink-0">
                     {!n.is_read && (
-                      <span className="w-2 h-2 rounded-full bg-cyan-500 block" />
+                      <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-sky-400 block" />
                     )}
                     {n.is_read && (
                       <span className="w-2 h-2 block" />
@@ -126,7 +126,7 @@ const NotificationBell: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2">
                       <span className="text-sm">{typeIcon[n.type]}</span>
-                      <p className={`text-xs leading-relaxed ${n.is_read ? 'text-slate-500 dark:text-slate-400' : 'text-slate-800 dark:text-slate-200 font-medium'}`}>
+                      <p className={`text-xs leading-relaxed ${n.is_read ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100 font-semibold'}`}>
                         {n.message}
                       </p>
                     </div>
@@ -140,8 +140,8 @@ const NotificationBell: React.FC = () => {
           </div>
 
           {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t border-slate-100 dark:border-white/[0.06]">
-              <p className="text-[10px] text-slate-500 text-center">
+            <div className="px-4 py-2 border-t border-slate-100 dark:border-blue-900/30 bg-slate-50/50 dark:bg-blue-950/30">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 text-center font-medium">
                 Showing last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
               </p>
             </div>

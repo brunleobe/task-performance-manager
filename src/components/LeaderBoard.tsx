@@ -6,26 +6,23 @@ interface LeaderBoardProps {
   entries: KPILog[];
 }
 
-// Rank badge helper
 const getRankBadge = (rank: number) => {
   if (rank === 1) return { emoji: '🥇', color: 'text-amber-500' };
-  if (rank === 2) return { emoji: '🥈', color: 'text-slate-600 dark:text-slate-300' };
-  if (rank === 3) return { emoji: '🥉', color: 'text-amber-700' };
+  if (rank === 2) return { emoji: '🥈', color: 'text-slate-500 dark:text-slate-300' };
+  if (rank === 3) return { emoji: '🥉', color: 'text-amber-700 dark:text-amber-600' };
   return { emoji: `#${rank}`, color: 'text-slate-400 dark:text-slate-500' };
 };
 
-// Bar gradient helper
 const getBarColor = (score: number) => {
-  if (score >= 80) return 'from-cyan-500 to-blue-500';
-  if (score >= 60) return 'from-amber-500 to-orange-500';
-  return 'from-red-500 to-pink-500';
+  if (score >= 80) return 'from-blue-600 to-sky-400';
+  if (score >= 60) return 'from-amber-500 to-sky-500';
+  return 'from-rose-500 to-orange-400';
 };
 
 const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
   const barRefs = useRef<(HTMLDivElement | null)[]>([]);
   const sorted = [...entries].sort((a, b) => b.kpi_score - a.kpi_score);
 
-  // Staggered width animation for progress bars
   useEffect(() => {
     sorted.forEach((entry, i) => {
       const bar = barRefs.current[i];
@@ -50,20 +47,20 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
         return (
           <div
             key={entry.user_id}
-            className="group p-3.5 rounded-xl border bg-slate-50 border-slate-200 hover:bg-slate-100 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:bg-white/[0.05] dark:hover:border-white/10 transition-all duration-200 animate-slide-up"
+            className="group p-3.5 rounded-xl border bg-slate-50 border-slate-200/90 hover:bg-slate-100 dark:border-blue-900/40 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 dark:hover:border-blue-700/50 transition-all duration-200 animate-slide-up"
             style={{ animationDelay: `${index * 80}ms` }}
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className={`text-lg font-bold ${rank.color}`}>{rank.emoji}</span>
-                <span className="text-sm font-semibold text-slate-800 dark:text-white">{entry.user_name ?? 'Staff Member'}</span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-white">{entry.user_name ?? 'Staff Member'}</span>
               </div>
-              <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+              <span className="text-sm font-bold text-blue-950 dark:text-sky-300 tabular-nums">
                 {entry.kpi_score.toFixed(1)}%
               </span>
             </div>
 
-            <div className="h-2 rounded-full bg-slate-200 dark:bg-white/[0.05] overflow-hidden">
+            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-blue-950/80 overflow-hidden">
               <div
                 ref={el => { barRefs.current[index] = el; }}
                 className={`h-full rounded-full bg-gradient-to-r ${barColor}`}

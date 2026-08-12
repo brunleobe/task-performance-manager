@@ -36,11 +36,11 @@ ChartJS.register(
 );
 
 const STAFF_COLORS = [
-  { border: '#06b6d4', bg: 'rgba(6,182,212,0.1)' },
-  { border: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
-  { border: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-  { border: '#f43f5e', bg: 'rgba(244,63,94,0.1)' },
-  { border: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
+  { border: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+  { border: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
+  { border: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  { border: '#f43f5e', bg: 'rgba(244,63,94,0.12)' },
+  { border: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 ];
 
 const chartBaseOptions = {
@@ -50,29 +50,29 @@ const chartBaseOptions = {
     legend: {
       labels: {
         color: '#94a3b8',
-        font: { family: 'Inter', size: 12 },
+        font: { family: 'Inter', size: 12, weight: '600' },
         usePointStyle: true,
         padding: 16,
       },
     },
     tooltip: {
-      backgroundColor: '#1e293b',
+      backgroundColor: '#0b1329',
       titleColor: '#f8fafc',
       bodyColor: '#cbd5e1',
-      borderColor: '#334155',
+      borderColor: '#1e3a8a',
       borderWidth: 1,
       padding: 10,
-      cornerRadius: 8,
+      cornerRadius: 10,
     },
   },
   scales: {
     x: {
-      grid: { color: 'rgba(255,255,255,0.05)' },
-      ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } },
+      grid: { color: 'rgba(255,255,255,0.06)' },
+      ticks: { color: '#64748b', font: { family: 'Inter', size: 11, weight: '500' } },
     },
     y: {
-      grid: { color: 'rgba(255,255,255,0.05)' },
-      ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } },
+      grid: { color: 'rgba(255,255,255,0.06)' },
+      ticks: { color: '#64748b', font: { family: 'Inter', size: 11, weight: '500' } },
     },
   },
 };
@@ -140,16 +140,16 @@ const ReportsPage: React.FC = () => {
         {
           label: 'Weight Completed',
           data: data.periods.map(p => data.monthlyTotals[p]?.completed ?? 0),
-          backgroundColor: 'rgba(6,182,212,0.7)',
-          borderColor: '#06b6d4',
+          backgroundColor: 'rgba(56,189,248,0.8)',
+          borderColor: '#38bdf8',
           borderWidth: 1,
           borderRadius: 6,
         },
         {
           label: 'Weight Assigned',
           data: data.periods.map(p => data.monthlyTotals[p]?.assigned ?? 0),
-          backgroundColor: 'rgba(167,139,250,0.4)',
-          borderColor: '#a78bfa',
+          backgroundColor: 'rgba(37,99,235,0.4)',
+          borderColor: '#2563eb',
           borderWidth: 1,
           borderRadius: 6,
         },
@@ -165,28 +165,28 @@ const ReportsPage: React.FC = () => {
   const topPerformer = latestRecords.sort((a, b) => b.kpi_score - a.kpi_score)[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0b0f19] dark:text-white transition-colors">
-      <header className="border-b border-slate-200 bg-white/80 dark:border-white/[0.06] dark:bg-white/[0.02] backdrop-blur-xl sticky top-0 z-10">
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-[#0b1329] dark:text-white transition-colors">
+      <header className="border-b border-slate-200/90 bg-white/90 dark:border-blue-900/40 dark:bg-[#0d1630]/90 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-blue-700 to-sky-500 flex items-center justify-center shadow-lg shadow-blue-600/30">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
             <div>
-              <span className="font-semibold text-slate-900 dark:text-white">TaskFlow</span>
-              <span className="text-slate-500 text-sm ml-2 font-medium">Reports</span>
+              <span className="font-extrabold text-slate-900 dark:text-white tracking-tight">TaskFlow</span>
+              <span className="text-blue-600 dark:text-sky-400 text-xs ml-2 font-bold uppercase tracking-wider">KPI Reports</span>
             </div>
           </div>
 
           <nav className="hidden sm:flex items-center gap-1">
             <Link to="/manager/dashboard"
-              className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.05] rounded-lg transition-all">
+              className="px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:text-white dark:hover:bg-blue-900/40 rounded-xl transition-all">
               Dashboard
             </Link>
             <Link to="/manager/reports"
-              className="px-3 py-1.5 text-sm font-medium bg-slate-200 text-slate-900 dark:bg-white/[0.08] dark:text-white rounded-lg transition-all">
+              className="px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider bg-blue-600 text-white dark:bg-blue-600/90 dark:text-white rounded-xl shadow-md shadow-blue-600/20 transition-all">
               Reports
             </Link>
           </nav>
@@ -196,17 +196,17 @@ const ReportsPage: React.FC = () => {
             <NotificationBell />
             <button
               onClick={() => setIsProfileOpen(true)}
-              className="text-right hidden sm:block px-2.5 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+              className="text-right hidden sm:block px-3 py-1 rounded-xl hover:bg-slate-200/60 dark:hover:bg-blue-900/40 transition-all border border-transparent hover:border-slate-200 dark:hover:border-blue-800/40"
               title="Click to edit profile & password"
             >
-              <p className="text-sm font-medium text-slate-800 dark:text-white flex items-center gap-1.5">
-                {user?.full_name} <span className="text-xs text-slate-500 dark:text-slate-400">⚙️</span>
+              <p className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                {user?.full_name} <span className="text-xs text-slate-400 dark:text-sky-300">⚙️</span>
               </p>
-              <p className="text-xs text-slate-500 font-medium">{format(new Date(), 'MMMM yyyy')}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{format(new Date(), 'MMMM yyyy')}</p>
             </button>
             <button
               onClick={handleLogout}
-              className="px-3 py-1.5 rounded-xl text-xs text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:border-white/[0.06] dark:hover:bg-white/[0.05] dark:hover:text-white border transition-all"
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 border-slate-200 hover:bg-slate-200/70 hover:text-slate-900 dark:text-slate-300 dark:border-blue-900/40 dark:hover:bg-blue-900/40 dark:hover:text-white border transition-all"
             >
               Sign out
             </button>
@@ -216,12 +216,12 @@ const ReportsPage: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">KPI Reports</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Team performance trends over the last 6 months.</p>
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Performance Analytics & KPI Reports</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">Historical KPI score trends and workload delivery metrics over the last 6 months.</p>
         </div>
 
         {error && (
-          <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+          <div className="mb-6 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm font-medium">
             ⚠️ {error} — Make sure your backend server is running.
           </div>
         )}
@@ -230,11 +230,11 @@ const ReportsPage: React.FC = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-24 rounded-xl bg-slate-100 dark:bg-white/[0.03] animate-pulse border border-slate-200 dark:border-white/[0.06]" />
+                <div key={i} className="h-24 rounded-xl bg-slate-200/60 dark:bg-blue-950/40 animate-pulse border border-slate-200 dark:border-blue-900/30" />
               ))}
             </div>
-            <div className="h-80 rounded-2xl bg-slate-100 dark:bg-white/[0.03] animate-pulse border border-slate-200 dark:border-white/[0.06]" />
-            <div className="h-64 rounded-2xl bg-slate-100 dark:bg-white/[0.03] animate-pulse border border-slate-200 dark:border-white/[0.06]" />
+            <div className="h-80 rounded-2xl bg-slate-200/60 dark:bg-blue-950/40 animate-pulse border border-slate-200 dark:border-blue-900/30" />
+            <div className="h-64 rounded-2xl bg-slate-200/60 dark:bg-blue-950/40 animate-pulse border border-slate-200 dark:border-blue-900/30" />
           </div>
         )}
 
@@ -242,33 +242,33 @@ const ReportsPage: React.FC = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {[
-                { label: 'Staff Tracked', value: new Set(data.records.map(r => r.user_id)).size, icon: '👥', color: 'text-cyan-600 dark:text-cyan-400' },
-                { label: 'Avg KPI (this month)', value: `${avgKpi.toFixed(1)}%`, icon: '📊', color: avgKpi >= 80 ? 'text-emerald-600 dark:text-emerald-400' : avgKpi >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400' },
+                { label: 'Staff Tracked', value: new Set(data.records.map(r => r.user_id)).size, icon: '👥', color: 'text-sky-600 dark:text-sky-400' },
+                { label: 'Avg KPI (this month)', value: `${avgKpi.toFixed(1)}%`, icon: '📊', color: avgKpi >= 80 ? 'text-emerald-600 dark:text-emerald-400' : avgKpi >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400' },
                 { label: 'Top Performer', value: topPerformer?.user_name?.split(' ')[0] ?? '—', icon: '🏆', color: 'text-amber-600 dark:text-amber-400' },
-                { label: 'Months of Data', value: data.periods.filter(p => data.records.some(r => r.period === p)).length, icon: '📅', color: 'text-purple-600 dark:text-purple-400' },
+                { label: 'Months of Data', value: data.periods.filter(p => data.records.some(r => r.period === p)).length, icon: '📅', color: 'text-blue-600 dark:text-sky-400' },
               ].map(stat => (
-                <div key={stat.label} className="bg-white border-slate-200 shadow-sm dark:bg-white/[0.03] dark:border-white/[0.06] border rounded-xl p-4 animate-fade-in">
+                <div key={stat.label} className="bg-white border-slate-200/90 shadow-sm dark:bg-[#121c38]/90 dark:border-blue-900/40 border rounded-xl p-4 animate-fade-in">
                   <p className="text-xl mb-1">{stat.icon}</p>
-                  <p className={`text-xl font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">{stat.label}</p>
+                  <p className={`text-xl font-extrabold tabular-nums ${stat.color}`}>{stat.value}</p>
+                  <p className="text-xs text-slate-500 font-semibold mt-0.5">{stat.label}</p>
                 </div>
               ))}
             </div>
 
             {data.records.length === 0 ? (
-              <div className="text-center py-24 bg-white border-slate-200 shadow-sm dark:bg-white/[0.02] dark:border-white/[0.06] border rounded-2xl">
+              <div className="text-center py-24 bg-white border-slate-200 shadow-sm dark:bg-[#121c38]/90 dark:border-blue-900/40 border rounded-2xl">
                 <p className="text-4xl mb-3">📊</p>
-                <p className="text-slate-600 dark:text-slate-400 font-medium">No KPI data yet</p>
-                <p className="text-slate-500 text-sm mt-1">Assign tasks to staff and let them complete tasks to generate KPI data.</p>
+                <p className="text-slate-700 dark:text-slate-300 font-bold">No KPI analytics data recorded yet</p>
+                <p className="text-slate-500 text-sm mt-1 font-medium">Assign tasks to staff members and complete workload items to generate monthly trends.</p>
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="bg-white border-slate-200 shadow-sm dark:bg-white/[0.03] dark:border-white/[0.08] border rounded-2xl p-6">
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                    KPI Score Trends — Per Staff Member
+                <div className="bg-white border-slate-200/90 shadow-sm dark:bg-[#121c38]/90 dark:border-blue-900/40 border rounded-2xl p-6">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-sky-500" />
+                    KPI Performance Trends — Per Staff Member
                   </h2>
-                  <p className="text-xs text-slate-500 mb-6 font-medium">Monthly KPI score (%) for each team member over the last 6 months</p>
+                  <p className="text-xs text-slate-500 mb-6 font-medium">Monthly score trajectory (%) per individual over 6 months</p>
                   <div className="h-72">
                     <Line
                       data={buildLineData()}
@@ -292,12 +292,12 @@ const ReportsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-white border-slate-200 shadow-sm dark:bg-white/[0.03] dark:border-white/[0.08] border rounded-2xl p-6">
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-500" />
-                    Monthly Task Weight — Assigned vs Completed
+                <div className="bg-white border-slate-200/90 shadow-sm dark:bg-[#121c38]/90 dark:border-blue-900/40 border rounded-2xl p-6">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                    Monthly Workload Weight — Assigned vs Completed
                   </h2>
-                  <p className="text-xs text-slate-500 mb-6 font-medium">Total task weight points across all staff per month</p>
+                  <p className="text-xs text-slate-500 mb-6 font-medium">Total weight point volume across team per period</p>
                   <div className="h-60">
                     <Bar
                       data={buildBarData()}
@@ -306,39 +306,39 @@ const ReportsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-white border-slate-200 shadow-sm dark:bg-white/[0.03] dark:border-white/[0.08] border rounded-2xl p-6">
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                    This Month — Detailed Breakdown
+                <div className="bg-white border-slate-200/90 shadow-sm dark:bg-[#121c38]/90 dark:border-blue-900/40 border rounded-2xl p-6">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                    Current Month Breakdown
                   </h2>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-xs text-slate-500 border-b border-slate-200 dark:border-white/[0.06]">
-                          <th className="text-left pb-3 pr-4 font-semibold">Staff Member</th>
-                          <th className="text-right pb-3 pr-4 font-semibold">KPI Score</th>
-                          <th className="text-right pb-3 pr-4 font-semibold">Assigned</th>
-                          <th className="text-right pb-3 pr-4 font-semibold">Completed</th>
-                          <th className="text-right pb-3 font-semibold">On Time</th>
+                        <tr className="text-xs text-slate-500 border-b border-slate-200 dark:border-blue-900/40">
+                          <th className="text-left pb-3 pr-4 font-bold uppercase tracking-wider">Staff Member</th>
+                          <th className="text-right pb-3 pr-4 font-bold uppercase tracking-wider">KPI Score</th>
+                          <th className="text-right pb-3 pr-4 font-bold uppercase tracking-wider">Assigned</th>
+                          <th className="text-right pb-3 pr-4 font-bold uppercase tracking-wider">Completed</th>
+                          <th className="text-right pb-3 font-bold uppercase tracking-wider">On Time</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                      <tbody className="divide-y divide-slate-100 dark:divide-blue-900/30">
                         {latestRecords.sort((a, b) => b.kpi_score - a.kpi_score).map((r, i) => (
-                          <tr key={r.user_id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-                            <td className="py-3 pr-4">
+                          <tr key={r.user_id} className="hover:bg-slate-50 dark:hover:bg-blue-950/30 transition-colors">
+                            <td className="py-3.5 pr-4">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</span>
-                                <span className="text-slate-900 dark:text-white font-medium">{r.user_name}</span>
+                                <span className="text-slate-900 dark:text-white font-bold">{r.user_name}</span>
                               </div>
                             </td>
-                            <td className="py-3 pr-4 text-right">
-                              <span className={`font-bold tabular-nums ${r.kpi_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : r.kpi_score >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <td className="py-3.5 pr-4 text-right">
+                              <span className={`font-extrabold tabular-nums ${r.kpi_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : r.kpi_score >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                 {r.kpi_score.toFixed(1)}%
                               </span>
                             </td>
-                            <td className="py-3 pr-4 text-right text-slate-600 dark:text-slate-400 tabular-nums">{r.total_weight_assigned} pts</td>
-                            <td className="py-3 pr-4 text-right text-slate-600 dark:text-slate-400 tabular-nums">{r.total_weight_completed} pts</td>
-                            <td className="py-3 text-right text-slate-600 dark:text-slate-400 tabular-nums">{r.on_time_count}</td>
+                            <td className="py-3.5 pr-4 text-right text-slate-600 dark:text-slate-400 tabular-nums font-semibold">{r.total_weight_assigned} pts</td>
+                            <td className="py-3.5 pr-4 text-right text-slate-600 dark:text-slate-400 tabular-nums font-semibold">{r.total_weight_completed} pts</td>
+                            <td className="py-3.5 text-right text-slate-600 dark:text-slate-400 tabular-nums font-semibold">{r.on_time_count}</td>
                           </tr>
                         ))}
                       </tbody>
