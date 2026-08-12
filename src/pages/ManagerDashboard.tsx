@@ -1,6 +1,6 @@
 // Manager Dashboard page with live DB API Integration
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LeaderBoard from '../components/LeaderBoard';
 import TaskCard from '../components/TaskCard';
@@ -154,6 +154,7 @@ const ManagerDashboard: React.FC = () => {
       {/* Navigation Header */}
       <header className="border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,8 +167,20 @@ const ManagerDashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* Navigation links */}
+          <nav className="hidden sm:flex items-center gap-1">
+            <Link to="/manager/dashboard"
+              className="px-3 py-1.5 text-sm text-white rounded-lg bg-white/[0.08] transition-all">
+              Dashboard
+            </Link>
+            <Link to="/manager/reports"
+              className="px-3 py-1.5 text-sm text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.05] transition-all">
+              Reports
+            </Link>
+          </nav>
+
+          {/* Right-side controls */}
           <div className="flex items-center gap-3">
-            {/* Live / Demo mode badge */}
             <span className={`hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
               isLiveMode
                 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'

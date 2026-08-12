@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import StaffDashboard from './pages/StaffDashboard';
 import ManagerDashboard from './pages/ManagerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import ReportsPage from './pages/ReportsPage';
 
 // Auth guard wrapper for protected routes
 const ProtectedRoute: React.FC<{
@@ -64,6 +65,10 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/admin/dashboard"
         element={<ProtectedRoute element={<AdminDashboard />} requiredRole="admin" />}
+      />
+      <Route
+        path="/manager/reports"
+        element={<ProtectedRoute element={<ReportsPage />} requiredRole="manager" />}
       />
       <Route
         path="/"

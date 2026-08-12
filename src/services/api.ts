@@ -135,6 +135,12 @@ export const api = {
     }
   },
 
+  // Manager: fetch 6-month KPI trends for Reports page
+  getKpiTrends: async () => {
+    if (!isRealJwt()) return { periods: [], records: [], monthlyTotals: {} };
+    return liveGet('/kpi/trends');
+  },
+
   // Staff: fetch personal KPI summary
   getMySummary: async (): Promise<KPILog> => {
     if (!isRealJwt()) return DEMO_KPI_LOGS[0];

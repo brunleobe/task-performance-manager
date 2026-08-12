@@ -1,4 +1,4 @@
-// KPI Controller (Leaderboard, Summary & CSV Export)
+// KPI Controller (Leaderboard, Summary, CSV Export & Trends)
 import { Response } from 'express';
 import mssql from 'mssql';
 import getPool from '../config/db';
@@ -98,5 +98,49 @@ export const exportReport = async (req: AuthRequest, res: Response) => {
     return res.send(csvContent);
   } catch (err) {
     return res.status(500).json({ message: 'Failed to export CSV report' });
+  }
+};
+
+// GET /api/kpi/trends — last 6 months of KPI data for all staff (for charts)
+export const getTrends = async (req: AuthRequest, res: Response) => {
+  try {
+    const pool = await getPool();
+
+    // Build list of last 6 period strings (yyyy-MM)
+    const periods: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      periods.push(d.toISOString().substring(0, 7));
+    }
+
+    const result = await pool.request().query(`
+      SELECT k.period, u.full_name AS user_name, k.user_id,
+             k.kpi_score, k.total_weight_assigned,
+             k.total_weight_completed, k.on_time_count
+      FROM KPILogs k
+      JOIN Users u ON k.user_id = u.id
+      WHERE k.period IN ('${periods.join("','")}')
+      ORDER BY k.period ASC, k.kpi_score DESC
+    `);
+
+    // Aggregate tasks completed per month across all staff
+    const monthlyTotals: Record<string, { completed: number; assigned: number }> = {};
+    periods.forEach(p => { monthlyTotals[p] = { completed: 0, assigned: 0 }; });
+    result.recordset.forEach((row: any) => {
+      if (monthlyTotals[row.period]) {
+        monthlyTotals[row.period].completed += row.total_weight_completed;
+        monthlyTotals[row.period].assigned  += row.total_weight_assigned;
+      }
+    });
+
+    return res.json({
+      periods,
+      records: result.recordset,
+      monthlyTotals,
+    });
+  } catch (err) {
+    console.error('Trends Error:', err);
+    return res.status(500).json({ message: 'Failed to retrieve trend data' });
   }
 };
