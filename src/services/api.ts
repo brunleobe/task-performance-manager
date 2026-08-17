@@ -369,6 +369,9 @@ export const api = {
     const users = await api.getAdminUsers();
     return users.filter(u => u.role === 'staff');
   },
-  exportReportCSV: async (): Promise<void> => api.exportKpiReportCsv(),
+  exportReportCSV: async (): Promise<void> => {
+    await fetch(`${API_BASE_URL}/kpi/export`, {
+      headers: getAuthHeaders(),
+    });
+  },
 };
-

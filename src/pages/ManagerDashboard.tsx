@@ -179,7 +179,7 @@ const ManagerDashboard: React.FC = () => {
     }
   };
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+    const handleLogout = () => { logout(); navigate('/login'); };
 
   const allTasksSorted = [...tasks].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
