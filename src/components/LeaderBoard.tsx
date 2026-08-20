@@ -21,7 +21,7 @@ const getBarColor = (score: number) => {
 
 const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
   const barRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const sorted = [...entries].sort((a, b) => b.kpi_score - a.kpi_score);
+  const sorted = [...entries].sort((a, b) => Number(b.kpi_score) - Number(a.kpi_score));
 
   useEffect(() => {
     sorted.forEach((entry, i) => {
@@ -33,7 +33,7 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
 
       setTimeout(() => {
         bar.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
-        bar.style.width = `${entry.kpi_score}%`;
+        bar.style.width = `${Number(entry.kpi_score)}%`;
       }, delay);
     });
   }, [entries]);
@@ -42,7 +42,7 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
     <div className="space-y-3">
       {sorted.map((entry, index) => {
         const rank = getRankBadge(index + 1);
-        const barColor = getBarColor(entry.kpi_score);
+        const barColor = getBarColor(Number(entry.kpi_score));
 
         return (
           <div
@@ -56,7 +56,7 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
                 <span className="text-sm font-semibold text-slate-900 dark:text-white">{entry.user_name ?? 'Staff Member'}</span>
               </div>
               <span className="text-sm font-bold text-blue-950 dark:text-sky-300 tabular-nums">
-                {entry.kpi_score.toFixed(1)}%
+                {Number(entry.kpi_score).toFixed(1)}%
               </span>
             </div>
 
@@ -80,3 +80,4 @@ const LeaderBoard: React.FC<LeaderBoardProps> = ({ entries }) => {
 };
 
 export default LeaderBoard;
+

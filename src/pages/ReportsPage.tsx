@@ -109,7 +109,7 @@ const ReportsPage: React.FC = () => {
     const byUser: Record<string, Record<string, number>> = {};
     data.records.forEach(r => {
       if (!byUser[r.user_name]) byUser[r.user_name] = {};
-      byUser[r.user_name][r.period] = r.kpi_score;
+      byUser[r.user_name][r.period] = Number(r.kpi_score);
     });
 
     const datasets = Object.entries(byUser).map(([name, scores], i) => {
@@ -160,9 +160,9 @@ const ReportsPage: React.FC = () => {
   const latestPeriod = data?.periods[data.periods.length - 1];
   const latestRecords = data?.records.filter(r => r.period === latestPeriod) ?? [];
   const avgKpi = latestRecords.length
-    ? latestRecords.reduce((s, r) => s + r.kpi_score, 0) / latestRecords.length
+    ? latestRecords.reduce((s, r) => s + Number(r.kpi_score), 0) / latestRecords.length
     : 0;
-  const topPerformer = latestRecords.sort((a, b) => b.kpi_score - a.kpi_score)[0];
+  const topPerformer = latestRecords.sort((a, b) => Number(b.kpi_score) - Number(a.kpi_score))[0];
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-[#0b1329] dark:text-white transition-colors">
@@ -323,7 +323,7 @@ const ReportsPage: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-blue-900/30">
-                        {latestRecords.sort((a, b) => b.kpi_score - a.kpi_score).map((r, i) => (
+                        {latestRecords.sort((a, b) => Number(b.kpi_score) - Number(a.kpi_score)).map((r, i) => (
                           <tr key={r.user_id} className="hover:bg-slate-50 dark:hover:bg-blue-950/30 transition-colors">
                             <td className="py-3.5 pr-4">
                               <div className="flex items-center gap-2">
@@ -332,8 +332,8 @@ const ReportsPage: React.FC = () => {
                               </div>
                             </td>
                             <td className="py-3.5 pr-4 text-right">
-                              <span className={`font-extrabold tabular-nums ${r.kpi_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : r.kpi_score >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                {r.kpi_score.toFixed(1)}%
+                              <span className={`font-extrabold tabular-nums ${Number(r.kpi_score) >= 80 ? 'text-emerald-600 dark:text-emerald-400' : Number(r.kpi_score) >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                {Number(r.kpi_score).toFixed(1)}%
                               </span>
                             </td>
                             <td className="py-3.5 pr-4 text-right text-slate-600 dark:text-slate-400 tabular-nums font-semibold">{r.total_weight_assigned} pts</td>
@@ -357,3 +357,4 @@ const ReportsPage: React.FC = () => {
 };
 
 export default ReportsPage;
+

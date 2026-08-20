@@ -1,8 +1,7 @@
-// Task Controller (Get, Create, Complete, Overdue Check Tasks)
+// Task Controller — PostgreSQL version
 import { Response } from 'express';
 import { z } from 'zod';
-import mssql from 'mssql';
-import getPool from '../config/db';
+import { pool } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
 import { recalculateUserKPI } from '../services/kpi.service';
 import { createNotification } from './notification.controller';
@@ -19,31 +18,50 @@ const createTaskSchema = z.object({
 export const getTasks = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user!;
-    const pool = await getPool();
-
-    let query = `
-      SELECT t.id, t.title, t.description, t.assigned_to, u.full_name AS assigned_to_name,
-             t.created_by, t.weight_points, t.status, t.due_date, t.completed_at, t.created_at
-      FROM Tasks t
-      LEFT JOIN Users u ON t.assigned_to = u.id
-    `;
+    let result;
 
     if (user.role === 'staff') {
-      query += ` WHERE t.assigned_to = @userId ORDER BY t.due_date ASC`;
+      result = await pool.query(
+        `SELECT t.id, t.title, t.description, t.assigned_to, t.created_by,
+                t.weight_points, t.status, t.due_date, t.completed_at, t.created_at,
+                u.full_name AS assigned_to_name
+         FROM tasks t
+         JOIN users u ON t.assigned_to = u.id
+         WHERE t.assigned_to = $1
+         ORDER BY t.due_date ASC`,
+        [user.id]
+      );
     } else {
-      query += ` ORDER BY t.created_at DESC`;
+      result = await pool.query(
+        `SELECT t.id, t.title, t.description, t.assigned_to, t.created_by,
+                t.weight_points, t.status, t.due_date, t.completed_at, t.created_at,
+                u.full_name AS assigned_to_name
+         FROM tasks t
+         JOIN users u ON t.assigned_to = u.id
+         ORDER BY t.created_at DESC`
+      );
     }
 
-    const request = pool.request();
-    if (user.role === 'staff') {
-      request.input('userId', mssql.VarChar, user.id);
-    }
-
-    const result = await request.query(query);
-    return res.json({ tasks: result.recordset });
+    return res.json({ tasks: result.rows });
   } catch (err) {
     console.error('Get Tasks Error:', err);
     return res.status(500).json({ message: 'Failed to retrieve tasks' });
+  }
+};
+
+// GET /api/tasks/staff-members — returns all staff users for manager dropdown
+export const getStaffMembers = async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.email, u.full_name, u.role, u.department_id, d.name AS department_name
+       FROM users u
+       LEFT JOIN departments d ON u.department_id = d.id
+       WHERE u.role = 'staff'
+       ORDER BY u.full_name ASC`
+    );
+    return res.json({ users: result.rows });
+  } catch (err) {
+    return res.status(500).json({ message: 'Failed to retrieve staff members' });
   }
 };
 
@@ -51,40 +69,27 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 export const createTask = async (req: AuthRequest, res: Response) => {
   try {
     const payload = createTaskSchema.parse(req.body);
-    const pool = await getPool();
-
     const taskId = `t_${Date.now()}`;
     const createdBy = req.user!.id;
     const dueDateISO = new Date(payload.due_date).toISOString();
 
-    await pool.request()
-      .input('id', mssql.VarChar, taskId)
-      .input('title', mssql.NVarChar, payload.title)
-      .input('description', mssql.NVarChar, payload.description)
-      .input('assigned_to', mssql.VarChar, payload.assigned_to)
-      .input('created_by', mssql.VarChar, createdBy)
-      .input('weight_points', mssql.Int, payload.weight_points)
-      .input('status', mssql.NVarChar, 'pending')
-      .input('due_date', mssql.DateTime2, dueDateISO)
-      .query(`
-        INSERT INTO Tasks (id, title, description, assigned_to, created_by, weight_points, status, due_date)
-        VALUES (@id, @title, @description, @assigned_to, @created_by, @weight_points, @status, @due_date)
-      `);
+    await pool.query(
+      `INSERT INTO tasks (id, title, description, assigned_to, created_by, weight_points, status, due_date)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)`,
+      [taskId, payload.title, payload.description, payload.assigned_to, createdBy, payload.weight_points, dueDateISO]
+    );
 
     const currentPeriod = new Date().toISOString().substring(0, 7);
     await recalculateUserKPI(payload.assigned_to, currentPeriod);
 
-    // Notify assigned staff member about the new task
     try {
-      await createNotification(pool, payload.assigned_to, 'assigned',
+      await createNotification(payload.assigned_to, 'assigned',
         `You have been assigned a new task: "${payload.title}"`, taskId);
     } catch { /* non-critical */ }
 
     return res.status(201).json({ message: 'Task created successfully', taskId });
   } catch (err: any) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: err.errors[0].message });
-    }
+    if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
     console.error('Create Task Error:', err);
     return res.status(500).json({ message: 'Failed to create task' });
   }
@@ -95,36 +100,33 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    const pool = await getPool();
     const completedAt = new Date().toISOString();
 
-    const result = await pool.request()
-      .input('id', mssql.VarChar, id)
-      .input('userId', mssql.VarChar, userId)
-      .input('completedAt', mssql.DateTime2, completedAt)
-      .query(`
-        UPDATE Tasks
-        SET status = 'completed', completed_at = @completedAt
-        WHERE id = @id AND (assigned_to = @userId OR @userId IN (SELECT id FROM Users WHERE role IN ('manager', 'admin')))
-      `);
+    const result = await pool.query(
+      `UPDATE tasks
+       SET status = 'completed', completed_at = $1
+       WHERE id = $2
+         AND (assigned_to = $3
+              OR $3 IN (SELECT id FROM users WHERE role IN ('manager', 'admin')))
+       RETURNING id`,
+      [completedAt, id, userId]
+    );
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: 'Task not found or unauthorized' });
     }
 
     const currentPeriod = new Date().toISOString().substring(0, 7);
     const updatedKPI = await recalculateUserKPI(userId, currentPeriod);
 
-    // Notify the task creator (manager) that the task was completed
     try {
-      const taskInfo = await pool.request()
-        .input('id', mssql.VarChar, id)
-        .query(`SELECT title, created_by FROM Tasks WHERE id = @id`);
-      if (taskInfo.recordset.length > 0) {
-        const { title, created_by } = taskInfo.recordset[0];
-        const staffName = req.user!.email;
+      const taskInfo = await pool.query(
+        `SELECT title, created_by FROM tasks WHERE id = $1`, [id]
+      );
+      if (taskInfo.rows.length > 0) {
+        const { title, created_by } = taskInfo.rows[0];
         if (created_by !== userId) {
-          await createNotification(pool, created_by, 'completed',
+          await createNotification(created_by, 'completed',
             `Task "${title}" has been marked as completed.`, id);
         }
       }
@@ -137,38 +139,29 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// POST /api/tasks/check-overdue â€” flags all past-due pending/in_progress tasks as 'overdue'
+// POST /api/tasks/check-overdue
 export const checkOverdue = async (req: AuthRequest, res: Response) => {
   try {
-    const pool = await getPool();
     const now = new Date().toISOString();
 
-    const result = await pool.request()
-      .input('now', mssql.DateTime2, now)
-      .query(`
-        UPDATE Tasks
-        SET status = 'overdue'
-        WHERE status IN ('pending', 'in_progress')
-          AND due_date < @now
-      `);
+    const result = await pool.query(
+      `UPDATE tasks
+       SET status = 'overdue'
+       WHERE status IN ('pending', 'in_progress')
+         AND due_date < $1
+       RETURNING id, assigned_to, title`,
+      [now]
+    );
 
-    const updated = result.rowsAffected[0];
+    const updated = result.rowCount ?? 0;
 
-    // Notify each affected staff member their task is overdue
     if (updated > 0) {
-      try {
-        const overdueUsers = await pool.request()
-          .input('now', mssql.DateTime2, now)
-          .query(`
-            SELECT DISTINCT assigned_to, title, id FROM Tasks
-            WHERE status = 'overdue'
-              AND completed_at IS NULL
-          `);
-        for (const task of overdueUsers.recordset) {
-          await createNotification(pool, task.assigned_to, 'overdue',
+      for (const task of result.rows) {
+        try {
+          await createNotification(task.assigned_to, 'overdue',
             `Your task "${task.title}" is overdue. Please complete it as soon as possible.`, task.id);
-        }
-      } catch { /* non-critical */ }
+        } catch { /* non-critical */ }
+      }
     }
 
     return res.json({ message: `${updated} task(s) marked as overdue`, updated });
@@ -183,39 +176,26 @@ export const editTask = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const payload = createTaskSchema.parse(req.body);
-    const pool = await getPool();
     const dueDateISO = new Date(payload.due_date).toISOString();
 
-    // Fetch existing task to handle KPI recalculations if assignee changes
-    const currentTaskReq = await pool.request()
-      .input('id', mssql.VarChar, id)
-      .query(`SELECT assigned_to FROM Tasks WHERE id = @id`);
-    
-    if (currentTaskReq.recordset.length === 0) {
+    const currentTaskReq = await pool.query(
+      `SELECT assigned_to FROM tasks WHERE id = $1`, [id]
+    );
+    if (currentTaskReq.rows.length === 0) {
       return res.status(404).json({ message: 'Task not found' });
     }
-    const oldAssignee = currentTaskReq.recordset[0].assigned_to;
+    const oldAssignee = currentTaskReq.rows[0].assigned_to;
 
-    await pool.request()
-      .input('id', mssql.VarChar, id)
-      .input('title', mssql.NVarChar, payload.title)
-      .input('description', mssql.NVarChar, payload.description)
-      .input('assigned_to', mssql.VarChar, payload.assigned_to)
-      .input('weight_points', mssql.Int, payload.weight_points)
-      .input('due_date', mssql.DateTime2, dueDateISO)
-      .query(`
-        UPDATE Tasks
-        SET title = @title,
-            description = @description,
-            assigned_to = @assigned_to,
-            weight_points = @weight_points,
-            due_date = @due_date
-        WHERE id = @id
-      `);
+    await pool.query(
+      `UPDATE tasks
+       SET title = $1, description = $2, assigned_to = $3,
+           weight_points = $4, due_date = $5
+       WHERE id = $6`,
+      [payload.title, payload.description, payload.assigned_to,
+       payload.weight_points, dueDateISO, id]
+    );
 
     const currentPeriod = new Date().toISOString().substring(0, 7);
-    
-    // Recalculate KPIs
     await recalculateUserKPI(payload.assigned_to, currentPeriod);
     if (oldAssignee !== payload.assigned_to) {
       await recalculateUserKPI(oldAssignee, currentPeriod);
@@ -223,9 +203,7 @@ export const editTask = async (req: AuthRequest, res: Response) => {
 
     return res.json({ message: 'Task updated successfully' });
   } catch (err: any) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: err.errors[0].message });
-    }
+    if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
     console.error('Edit Task Error:', err);
     return res.status(500).json({ message: 'Failed to update task' });
   }
@@ -235,30 +213,20 @@ export const editTask = async (req: AuthRequest, res: Response) => {
 export const deleteTask = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
 
-    // Fetch existing task to get assignee for KPI recalculation
-    const currentTaskReq = await pool.request()
-      .input('id', mssql.VarChar, id)
-      .query(`SELECT assigned_to FROM Tasks WHERE id = @id`);
-    
-    if (currentTaskReq.recordset.length === 0) {
+    const currentTaskReq = await pool.query(
+      `SELECT assigned_to FROM tasks WHERE id = $1`, [id]
+    );
+    if (currentTaskReq.rows.length === 0) {
       return res.status(404).json({ message: 'Task not found' });
     }
-    const currentTask = currentTaskReq.recordset[0];
+    const { assigned_to } = currentTaskReq.rows[0];
 
-    // Clean up related notifications first
-    await pool.request()
-      .input('id', mssql.VarChar, id)
-      .query(`DELETE FROM Notifications WHERE related_task_id = @id`);
-      
-    // Delete the task
-    await pool.request()
-      .input('id', mssql.VarChar, id)
-      .query(`DELETE FROM Tasks WHERE id = @id`);
+    await pool.query(`DELETE FROM notifications WHERE task_id = $1`, [id]);
+    await pool.query(`DELETE FROM tasks WHERE id = $1`, [id]);
 
     const currentPeriod = new Date().toISOString().substring(0, 7);
-    await recalculateUserKPI(currentTask.assigned_to, currentPeriod);
+    await recalculateUserKPI(assigned_to, currentPeriod);
 
     return res.json({ message: 'Task deleted successfully' });
   } catch (err) {

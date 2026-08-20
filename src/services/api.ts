@@ -2,7 +2,7 @@
 import type { Task, KPILog, User, Department, AuthUser, LoginCredentials, CreateTaskPayload, Notification } from '../types';
 import { DEMO_USERS, DEMO_DEPARTMENTS, DEMO_TASKS, DEMO_KPI_LOGS } from '../data/mockData';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('tpm_token');
@@ -32,6 +32,15 @@ const liveGet = async (path: string) => {
   return res.json();
 };
 
+
+// PostgreSQL returns NUMERIC fields as strings — normalize them to numbers
+const normalizeKpiLog = (k: any): KPILog => ({
+  ...k,
+  kpi_score: Number(k.kpi_score),
+  total_weight_assigned: Number(k.total_weight_assigned),
+  total_weight_completed: Number(k.total_weight_completed),
+  on_time_count: Number(k.on_time_count),
+});
 export const api = {
   // Login endpoint call
   login: async (credentials: LoginCredentials): Promise<{ token: string; user: AuthUser }> => {
@@ -175,7 +184,7 @@ export const api = {
     if (!isRealJwt()) return DEMO_KPI_LOGS;
     try {
       const data = await liveGet('/kpi/leaderboard');
-      return data.leaderboard ?? [];
+      return (data.leaderboard ?? []).map(normalizeKpiLog);
     } catch (err: any) {
       if (err instanceof TypeError) return DEMO_KPI_LOGS;
       throw err;
@@ -193,7 +202,7 @@ export const api = {
     if (!isRealJwt()) return DEMO_KPI_LOGS[0];
     try {
       const data = await liveGet('/kpi/my-summary');
-      return data.summary;
+      return normalizeKpiLog(data.summary);
     } catch (err: any) {
       if (err instanceof TypeError) return DEMO_KPI_LOGS[0];
       throw err;
@@ -375,3 +384,5 @@ export const api = {
     });
   },
 };
+
+

@@ -41,12 +41,12 @@ const StaffDashboard: React.FC = () => {
         ]);
 
         setTasks(myTasks);
-        setKpiScore(summary.kpi_score);
+        setKpiScore(Number(summary.kpi_score));
         setKpiData({
           total_weight_assigned: summary.total_weight_assigned,
           total_weight_completed: summary.total_weight_completed,
           on_time_count: summary.on_time_count,
-          kpi_score: summary.kpi_score,
+          kpi_score: Number(summary.kpi_score),
         });
         setIsLiveMode(true);
       } else {
@@ -95,7 +95,7 @@ const StaffDashboard: React.FC = () => {
       total_weight_assigned: totalAssigned,
       total_weight_completed: totalCompleted,
       on_time_count: onTime,
-      kpi_score: score,
+      kpi_score: Number(score),
     }));
   };
 
@@ -112,12 +112,12 @@ const StaffDashboard: React.FC = () => {
       await api.completeTask(taskId);
       if (hasRealToken) {
         const summary = await api.getMySummary();
-        setKpiScore(summary.kpi_score);
+        setKpiScore(Number(summary.kpi_score));
         setKpiData({
           total_weight_assigned: summary.total_weight_assigned,
           total_weight_completed: summary.total_weight_completed,
           on_time_count: summary.on_time_count,
-          kpi_score: summary.kpi_score,
+          kpi_score: Number(summary.kpi_score),
         });
       }
     } catch {
@@ -317,3 +317,4 @@ const StaffDashboard: React.FC = () => {
 };
 
 export default StaffDashboard;
+
